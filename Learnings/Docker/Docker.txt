@@ -1,0 +1,463 @@
+1)What is Docker?
+    Docker is a Containerized application used to package the application
+    along with its runtime, dependencies, configurations, libraries into a
+    portable unit called as Container.
+
+    The main purpose of Docker is to eliminate dependencies and make app
+    consistent accross Platforms.
+
+    Container ensures that the app behaves same accross different environments.
+
+
+2)Difference between VM and Docker Container?
+    VM's provide hardware level virtualization with seperate OS, where as
+    Docker Container's provide os-level virtualization by sharing the host 
+    kernel, making them more light-weight and faster to start.
+
+
+3)Docker Architecture
+
+    Components:
+        Docker Client
+        Docker Daemon (dockerd)
+        Docker Engine
+        Docker Registry
+        Docker Images
+        Docker Containers
+
+    Flow
+        docker build
+            ↓
+        Docker Image
+            ↓
+        docker run
+            ↓
+        Container
+
+4)When we install Docker, what gets installed?
+    When you install Docker on a Linux server, you're not just installing a single binary.
+    
+    You get:
+        Docker Client (docker)
+        Docker Daemon (dockerd)
+        Container Runtime
+        Docker Networks
+        Docker Volume Management
+        Docker Image Management
+
+    1)Docker Client: It was the command line tool. It helps in executing the commands.
+        when we run docker run nginx, the Client does not create the Container itself,
+        It sends request to the dockerd, which is Docker Daemon.
+
+    2)Docker Daemon/Dockerd: This is the main docker service or heart of the docker 
+        running in the background. 
+        How to check it: systemctl status docker
+
+        It gets installed at /usr/bin/dockerd
+
+        Responsibilities:
+            Build Images, Pull Images, Create Containers, Manage Networks
+            Manage Volumes, Communicate with the Container runtime.
+
+            Flow:
+                docker command
+                    ↓
+                dockerd
+                    ↓
+                Container Runtime
+                    ↓
+                Container
+
+    3)Container Runtime: Docker doesnt run the containers directly, it installs
+        containerd and runc.
+        containerd is used to manage the container lifecycle.
+        runc creates the containers, using the linux kernel features.(Namespaces, Cgroups etc)
+
+        It gets installed at /usr/bin/containerd
+        It gets installed at /usr/bin/runc
+
+    4)Docker images: Its a readonly template, that containers everything to run a conatiner.
+        Images were creted locally and pushed to the repository.
+        Image = template
+
+    5)Docker Containers: Running instances of and image is called a container.
+
+    6)Docker Networks: Containers Communicate internally with network only.
+        typically bridge, host, none
+        deafult network in docker is bridge.
+
+    7)Docker Volumes: Used to persist data, without Volume if container deleted
+        then data is lost, with volumes data survives and can be re-attached to the other container.
+
+
+    summary:
+        When you install Docker on a server/laptop, you are essentially installing the Docker Engine.
+
+        Docker Engine includes the core components:
+
+        Docker Engine
+        │
+        ├── Docker Client (docker)
+        ├── Docker Daemon (dockerd)
+        ├── Container Runtime (containerd)
+        └── runc
+
+        The daemon then manages:
+            Containers
+            Images
+            Networks
+            Volumes
+
+        So technically:
+
+        ✅ Docker Client → Part of Docker Engine
+        ✅ Docker Daemon → Part of Docker Engine
+        ✅ containerd → Part of Docker Engine
+        ✅ runc → Part of Docker Engine
+
+        But:
+
+        ❌ Images are not part of Docker Engine itself
+        ❌ Containers are not part of Docker Engine itself
+        ❌ Networks are not part of Docker Engine itself
+        ❌ Volumes are not part of Docker Engine itself
+
+
+5)what actually creates a container
+
+    The container is initially created by runc, but runc exits after creation. 
+    The ongoing lifecycle of the container is managed by containerd through a 
+    containerd-shim process. (It was like helper process, keeps the container alive even if the conatinerd restarts.)
+    
+    Docker Daemon interacts with containerd whenever we execute commands such as docker stop, 
+    docker restart, or docker rm.
+
+    Main Role of dockerd:
+        It acts as the central manager of Docker and serves as the bridge between:
+
+        Docker Client (docker commands)
+                    ↕
+                dockerd
+                    ↕
+                containerd
+                    ↕
+                    runc
+        When you run:
+        docker run nginx
+
+        Step 1: The Docker Client sends a request to dockerd.
+            docker run nginx
+                ↓
+                dockerd
+
+        Step 2: dockerd checks
+            Does the image exist?
+            If not, pull it.
+            Create container configuration.
+            Create networking.
+            Mount volumes.
+
+        Step 3: dockerd asks containerd
+            Start a container using this image
+
+        Step 4: containerd calls runc.
+
+        Step 5: runc creates the container process.
+
+6)What are Image Layers?
+
+    A Docker image is not a single file.
+    It is made up of multiple read-only layers stacked on top of each other.
+
+    Example Dockerfile:
+
+        FROM ubuntu:22.04
+        RUN apt-get update
+        RUN apt-get install -y python3
+        COPY app.py /app/
+
+    Why layers? Because layers can be reused.
+
+    Docker images are lightweight because they share only the application
+    and its dependencies, and use layered filesystems(OverlayFS) 
+    where common layers are reused across multiple images instead of being duplicated.
+
+
+7)What happens when a container starts?
+
+    Images are read-only. Docker adds a thin writable layer on top:
+    Any changes made by the running container go into the writable layer.
+
+    The writable layer is added on top of Docker image layers 
+    to store runtime changes such as file modifications, logs, and 
+    temporary data using a copy-on-write mechanism, 
+    since image layers are immutable.
+
+    What happens to the writable layer when a container stops or dies?
+        The writable layer is not deleted when a container stops, but it is deleted when the container is removed (docker rm).
+
+
+8) What is BuildKit
+    BuildKit is part of modern/latest Docker, and it’s the default build engine in current Docker versions.
+    You don’t install it separately. It comes with Docker Engine.
+    It replaces the legacy builder, providing faster builds, better caching, parallel execution, and improved security.
+
+
+9) cheat sheet for command to components connection
+    | Operation         | Main Components             |
+    | ----------------- | --------------------------- |
+    | docker build      | dockerd + BuildKit          |
+    | docker run        | dockerd + containerd + runc |
+    | docker stop/start | dockerd + containerd        |
+    | docker pull/push  | dockerd + containerd        |
+    | docker ps         | dockerd + containerd        |
+    | docker network    | dockerd + kernel            |
+    | docker volume     | dockerd + storage driver    |
+
+10)Why Dockerfile?
+    A Dockerfile is a blueprint to build a Docker image automatically.
+    A Dockerfile is used to define a set of instructions to build a Docker image in a consistent, automated, and repeatable way.
+    A Dockerfile is a declarative script that defines step-by-step instructions
+
+    How Dockerfile works
+        Dockerfile
+        ↓
+        docker build
+        ↓
+        BuildKit
+        ↓
+        Image (layers)
+        ↓
+        Container (runtime)
+
+    Each instruction = one image layer
+
+    FROM: Used for base image
+        FROM python:3.11
+
+    RUN: Execute commands during image build
+        RUN apt-get update
+        RUN pip install flask
+
+        This creates the image layer here.
+
+    COPY: Copy files from local machine → image
+        COPY app.py /app/
+
+    ADD: It is Like COPY but with extra features
+        Can extract tar files,Can download URLs (not recommended)
+        ADD app.tar.gz /app/
+
+    WORKDIR: Set working directory inside container
+        WORKDIR /app
+
+    CMD: Default command when container starts
+        CMD ["python", "app.py"]
+        Only one CMD allowed (last one wins)
+
+    ENTRYPOINT: Defines fixed executable
+        ENTRYPOINT ["python"]
+        CMD ["app.py"]
+
+        👉 ENTRYPOINT = main process
+        👉 CMD = default arguments
+    
+    ENV: Set environment variables
+        ENV APP_ENV=production
+
+    EXPOSE: Document port used by container
+        EXPOSE 8080
+
+    USER: Run container as non-root user (security)
+        USER appuser
+
+    LABEL: Metadata for image
+        LABEL maintainer="devops-team"
+
+
+11) CMD and ENTRYPOINT
+    CMD defines default arguments that can be overridden at runtime,
+    while ENTRYPOINT defines the main executable that always runs.
+    In production, ENTRYPOINT is used for the main application,
+    and CMD is used to provide default parameters or configurations 
+    that can be overridden when running the container.
+
+
+12)Docker Volume
+    A Docker Volume provides persistent storage for containers.
+
+    where volumes were stored, /var/lib/docker/volumes/
+
+    Writable Layer will be removed even after docker remove of the container,
+    thats why volume is prefered.
+
+    Mongo stores all collections, documents, indexes inside: /data/db
+    and /data/db is present Inside the container writable layer.
+
+    In order to mount the path to the volume we need to know, paths
+    were data is stored in each,
+    Mongo: /data/db
+    MySQL: /var/lib/mysql
+    PostgressSql: /var/lib/postgresql/data
+
+    Example:
+
+        volumes:
+            - mongo-data:/data/db
+
+        mongo-data    :    /data/db
+            ↑                 ↑
+        Volume Name      Container Path
+
+    We have two type os volumes, 
+    Named and bindmount/host mount volumes
+
+    Named volumes store data in Docker-managed storage locations, 
+    whereas bind mounts store data directly in a specific host directory chosen by the user.
+
+    docker run -d --name mongo1 -v mongo-data:/data/db mongo:latest
+    -d                         → Run in background
+    --name mongo1             → Container name
+    -v mongo-data:/data/db    → Mount volume
+    mongo                     → IMAGE NAME
+
+    MongoDB containers support automatic user creation through 
+    environment variables such as MONGO_INITDB_ROOT_USERNAME and 
+    MONGO_INITDB_ROOT_PASSWORD. These credentials are created only 
+    during the first initialization of an empty data directory. 
+    If a persistent volume already contains MongoDB data, the initialization variables are ignored.
+
+    services:
+        mongo:
+            image: mongo
+            container_name: mongo
+            ports:
+            - "27017:27017"
+
+            environment:
+            MONGO_INITDB_ROOT_USERNAME: admin
+            MONGO_INITDB_ROOT_PASSWORD: admin123
+
+            volumes:
+            - mongo-data:/data/db
+
+        volumes:
+        mongo-data:
+
+    Where are user details stored? /data/db
+
+    If container, removed also volume persist and it holds
+    Users,Passwordhashes,Collections,Documents,Indexes
+
+13) Docker Networking
+        Docker Networking is basically how containers talk to each other
+
+        Why Docker Networking exists?
+            Containers are isolated, 
+            So by default: 
+                Container A ❌ cannot talk to Container B
+                Container ❌ cannot talk to Internet (unless configured)
+    
+    Types of Docker Networks:
+
+    Bridge Network (DEFAULT):
+        This is the most commonly used. 
+        When you do: docker run nginx (Docker automatically attaches it to bridge n/w)
+
+        Containers in same bridge network can talk using IP.
+        Custom bridge networks allow containers to communicate using container names via built-in DNS resolution.
+
+    Bridge network gives each container its own IP in an isolated network, 
+    while host network makes containers share the host’s network stack without separate IPs.
+    
+    Docker enables container-to-container communication using an internal DNS server 
+    that maps container names to their IP addresses within the same network.
+
+
+14)Docker Compose
+    To manage multiple containers as a single application.
+
+15)Where do Docker container logs go?
+    By default, Docker stores container logs in JSON files 
+    under /var/lib/docker/containers/<container-id>/ using the json-file 
+    logging driver. These logs are not stored in volumes and are deleted 
+    when the container is removed. For persistent logging, external logging drivers or mounted 
+    log directories must be used.
+
+
+16)Namespaces?
+    Linux namespaces provide isolation for containers by creating separate views of system resources 
+    like processes, networking, and filesystem so that each container behaves like an independent system.
+
+    | Namespace | What it isolates            |
+    | --------- | --------------------------- |
+    | PID       | Processes                   |
+    | NET       | Network interfaces, IPs     |
+    | MNT       | Filesystem mounts           |
+    | UTS       | Hostname                    |
+    | IPC       | Inter-process communication |
+    | USER      | User IDs                    |
+
+
+17)What are Cgroups (Control Groups)?
+    Cgroups limit and control resource usage of containers.
+
+    Cgroups (Control Groups) are a Linux kernel feature used by Docker to 
+    limit and monitor resource usage like CPU, memory, and disk I/O for containers.
+
+    | Resource | Control     |
+    | -------- | ----------- |
+    | CPU      | limit usage |
+    | Memory   | RAM limit   |
+    | Disk I/O | speed       |
+    | Network  | bandwidth   |
+
+    Run container with memory limit: docker run -m 512m nginx
+    👉 Container cannot use more than 512MB RAM
+
+18)How to reduce Docker image size?
+    1. Use smaller base images
+    2. Multi-stage builds
+    3. Avoid unnecessary packages
+    4. Clean cache( RUN apt-get update && apt-get install -y python3 && rm -rf /var/lib/apt/lists/*)
+    5. Use .dockerignore
+    6. Combine RUN commands
+
+
+19)docker system prune
+    docker system prune is used when you want to clean up unused Docker resources and free disk space.
+
+    It removes unused (dangling / stopped) resources like:
+        stopped containers
+        unused networks
+        dangling images (untagged images)
+        build cache
+
+    By default:
+        docker system prune
+
+        Removes:
+
+        stopped containers ✔
+        networks not used ✔
+        dangling images ✔
+
+        But NOT:
+
+        volumes ❌ (safe by default)
+        tagged images ❌
+
+    docker system prune -a
+        This removes:
+        ALL unused images (even tagged ones)
+        stopped containers
+        build cache
+
+        👉 This can remove things you didn’t expect
+
+    docker system prune -a --volumes
+        This deletes:
+        all unused volumes
+        database data (if not attached)
+
+ELK

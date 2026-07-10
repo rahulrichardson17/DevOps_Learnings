@@ -1,0 +1,166 @@
+1. Database (OLTP – Online Transaction Processing)
+
+    A database is designed to store day-to-day transactional data.
+
+    1. Store and manage current operational data
+    2. Highly structured
+    3. This is where data is first captured.
+
+    Ex: When you place an order → it is stores data in MySQL/PostgreSQL in orders table.
+
+
+2. Data Warehouse (OLAP – Online Analytical Processing)
+
+    A data warehouse is used for analytics and reporting.
+
+    1. Stores cleaned + structured + historical data
+    2. Used for dashboards, business reports
+    3. Data here is not raw, it is transformed.
+
+    Ex: “Total sales in India last month”, “Top 10 products by revenue”
+    Tools: Snowflake
+
+3. Data Lake
+
+    A data lake stores everything in raw form.
+
+    1. It contains Structured + semi-structured + unstructured data
+    2. No transformation initially
+    3. Used for ML, big data, exploration
+    Stored in AWS s3, hadoop etc
+
+4. ETL Process
+    Source --- ETL -- datawarehouse
+
+    A database handles real-time application data, a data warehouse stores cleaned 
+    historical data for analytics, and a data lake stores raw data in any format.
+    ETL pipelines extract data from sources like databases, transform it into usable 
+    format, and load it into a warehouse for reporting.
+
+5. Snowflake is a Cloud Data Platform
+    Database = storage
+    Warehouse = processing engine (provides compute resources)
+
+    They are completely separate.
+
+    What happens when you run a query?
+        Takes data from database (storage)
+        Uses warehouse (compute) to process it
+        result 👉 No warehouse = no query execution
+
+        👉 In traditional systems:
+        Database = storage + compute together (MySQL, Postgres)
+        👉 In Snowflake:
+        Storage and compute are separated
+
+6. Denodo is a data virtualization platform
+    It creates a virtual database layer over: Oracle / MySQL,Snowflake
+    S3 files,APIs,Hadoop, etc.
+
+    You query everything using SQL like it’s one system.
+    Combines data from multiple sources in real time.
+    Customer table in Oracle,Orders in Snowflake,Logs in S3 Denodo join them virtually.
+
+    No need of data pipelines, data id fetched in realtime.
+
+7. Shared Tables (Data Sharing)
+    Shared tables = sharing data with another Snowflake account without copying it.
+    Data is NOT copied, only access is shared.
+
+        Provider side:
+
+            CREATE SHARE exf_product_share;
+
+            GRANT USAGE ON DATABASE EXF TO SHARE exf_product_share;
+            GRANT USAGE ON SCHEMA EXF.DBO TO SHARE exf_product_share;
+            GRANT SELECT ON TABLE EXF.DBO.PRODUCT TO SHARE exf_product_share;
+
+            ALTER SHARE exf_product_share ADD ACCOUNTS = XYZ123;
+
+        Consumer side:
+
+            CREATE DATABASE exf_shared_db
+            FROM SHARE PROVIDER_ACCOUNT_ID.exf_product_share;
+
+
+8. Streams
+    A Stream tracks changes in a table (CDC - Change Data Capture).
+    It records inserts, updates, and delete
+
+        CREATE STREAM orders_stream ON TABLE orders;
+
+        1. METADATA$ACTION
+            INSERT
+            DELETE
+        2. METADATA$ISUPDATE
+            TRUE if row is part of update operation
+        3. METADATA$ROW_ID
+            Unique internal identifier
+
+        Snowflake converts UPDATE into DELETE + INSERT
+        APPEND_ONLY = TRUE
+        ALTER TABLE orders SET CHANGE_TRACKING = TRUE;
+
+
+9. task
+    A Task is a scheduler to run SQL automatically
+
+    create or replace task FIS_MDM.OPERATION_TABLES.SEC_SOI_LIST_TASK
+	warehouse=FIS_WF_EXF_QA
+	schedule='USING CRON */15 0-17,23 * * 1-6 UTC'
+	SUSPEND_TASK_AFTER_NUM_FAILURES=0
+	when SYSTEM$STREAM_HAS_DATA('SEC_SOI_LIST_STREAM')
+	as CALL FIS_MDM.OPERATION_TABLES.SEC_SOI_SP('True');
+
+    create or replace task FIS_MDM.OPERATION_TABLES.SEC_SOI_EXTERNAL_TRIGGER_WF_TASK
+	warehouse=FIS_WF_EXF_QA
+	after FIS_MDM.OPERATION_TABLES.SEC_SOI_LIST_TASK
+	as CALL FIS_MDM.OPERATION_TABLES.PREFECT_WF_TRIGGER_SP();
+
+10. Stored Procedures
+    A Stored Procedure is reusable SQL logic or programatic block.
+    Procedure = SQL + programming logic
+
+    save data in procedure to table
+    json_data = df.toPandas().to_json(orient='records')
+    to display return result 
+
+    df.write.mode('append').save_as_table('table)
+
+
+11. External Integration
+    Used to connect Snowflake with external cloud services securely
+    AWS S3 storage, Azure Blob,External functions (APIs), Event notifications
+
+    External Integration = secure bridge between Snowflake and external systems
+
+12. Network policy
+    A security feature to control who can access Snowflake based on IP
+    Network Policy = IP whitelist/blacklist for Snowflake access
+
+    /* For SEC_SOI_LIST, SEC_SOI_SETUP file should be run before executing this file.
+    For DISTRIBUTION_STATUS, DISTRIBUTION_SETUP file should be run before executing this file.
+    */
+
+
+    /* Create NETWORK RULE
+    NETWORK RULE Name: FIS_NETWORK_RULE_{name_suffix}
+    */
+    CREATE OR REPLACE NETWORK RULE FIS_NETWORK_RULE_{name_suffix}
+    MODE = EGRESS
+    TYPE = HOST_PORT
+    VALUE_LIST = ('{host_name}');
+
+    /* Create ACCESS INTEGRATION
+    ACCESS INTEGRATION Name: FIS_ACCESS_INTEGRATION_{name_suffix}
+    */
+    CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION FIS_ACCESS_INTEGRATION_{name_suffix}
+    ALLOWED_NETWORK_RULES = (FIS_NETWORK_RULE_{name_suffix})
+    ENABLED = true;
+
+    /* Create NOTIFICATION INTEGRATION
+    NOTIFICATION INTEGRATION Name: FIS_EMAIL_INTEGRATION_{name_suffix}
+    */
+    CREATE OR REPLACE NOTIFICATION INTEGRATION FIS_EMAIL_INTEGRATION_{name_suffix}
+    TYPE=EMAIL
+    ENABLED=TRUE

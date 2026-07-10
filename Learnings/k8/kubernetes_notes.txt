@@ -1,0 +1,1387 @@
+1. Kubernetes??
+
+    k8's is a container Orchestration platform developed by google and 
+    now maintained by CNC Foundation( Cloud native computing Foundation)
+
+    It helps in deploying, maintaining, scaling and monitor containerized
+    applications.
+
+    Docker - create and run conatiners
+    K8 - Manages 100 of containers across multiple servers.
+
+    with k8
+    ---------
+    It starts containers automatically
+    If a container dies, it recreates it
+    It scales on demand
+    It distributes tarffic automatically
+
+    High availability- If a pod crashes, k8 will automatically create another pod.
+    users dont notice the failure.
+
+    Autoscaling- If normal tarffic and has 3 pods, in high traffic it increases 
+    to 10 pods and when traffic goes down, it becomes to 3 pods.
+
+    LoadBalancing - Instead of sending traffic to one pod , traffic is distributed evenly
+
+    Rolling updates - without downtime
+
+    Resource optimization - k8 places pods where resources were available.
+
+2. Core k8 components
+
+    Cluster: A collection of servers managed by Kubernetes.
+
+    Node: A machine VM or a Physical server.
+
+    Pod: Smallest deployable Unit, one container one pod.
+
+    Deployment: Manages the pod creation and updates.
+
+    Service: Provides access to pods, make pod to pod communication
+
+    k8 flow:
+
+        user Request > Ingress > Service > Pod > Node > Cluster
+
+
+3. K8 cluster
+
+    k8 cluster is broadly divided into 2 prats
+    Control plane , Worker nodes
+
+    Control plane(Master node):
+        This is the brain of the k8
+
+        It makes decisions about 
+          scheduling pods
+          maintaining desired state
+          scaling
+          Monitoring cluster health
+          handling api requests
+
+
+    ControlPlane:
+        API server
+        Control Manager
+        Scheduler
+        etcd
+
+    Worker nodes:
+        kubelet
+        kube-proxy
+        containerd
+        pod
+
+
+    ApI server -  is the entry point of the k8, all the communication goes through it.
+        if we run kubectl apply -f deployment.yaml from kubectl it first goes to the API Server.
+
+    etcd - key value database, stores all the info regarding the k8,
+           pod, deployment, service, secrets, configmaps, cluster state
+
+           etcd is the source of truth for cluster state.
+
+    kube-scheduler - It decides which node should run the pod, if node 1 cpu is 90%
+        and node cpu is 20% then scheduler places the pod in the node2.
+
+    kube control manager - It continously checks the desired state vs actual state, lets say 
+        we have replicas mentioned as 3 , and only two were running, it creates new pod.
+
+
+    Worker nodes:
+        These actually run your applications, 
+
+    kubelet -  It is the agent which is running on the each node.
+        responsibilities, it talks to the api server, creates and monitor the pod health
+
+    Container runtime - Actually runs the containers
+
+    kube-proxy - handles networking, responsible for service communication,load LoadBalancing
+    network rules
+
+Kubernetes consists of two main parts: the Control Plane and Worker Nodes. The Control Plane manages the cluster using components like API Server, Scheduler, Controller Manager, and etcd. 
+Worker Nodes run the actual application pods and contain kubelet, kube-proxy, and a container runtime such as containerd.
+
+
+4. What happens internally when you run kubectl apply -f deployment.yaml
+
+    When we run kubectl apply -f deployment.yaml
+
+    kubectl reads the YAML manifest, converts it into an API request, and sends it to the Kubernetes API Server.
+    The API Server authenticates the user, authorizes the request using RBAC, validates the object, and stores the desired state in etcd.
+    The Deployment Controller running inside kube-controller-manager watches for the new Deployment. It notices that the desired state exists 
+    but the corresponding ReplicaSet does not, so it creates a ReplicaSet and updates the cluster state through the API Server, which is then persisted in etcd.
+
+    Next, the ReplicaSet Controller notices that the desired number of Pods is not running. 
+    If the Deployment specifies 3 replicas, it creates 3 Pod objects and updates the API Server, which stores them in etcd.
+
+    The Scheduler watches for Pods that do not have a node assigned. It evaluates the available worker nodes based on CPU, memory, taints, 
+    tolerations, affinity rules, and node health, then selects the most suitable node and assigns the Pods to it.
+
+    The kubelet running on the selected worker node notices that Pods have been assigned to its node. 
+    It instructs the container runtime, such as containerd, to pull the required image from the container registry if it is not already present locally and then start the containers.
+
+    Once the containers are running, kubelet continuously reports the Pod status back to the API Server, which persists the updated state in etcd.
+
+
+    **** Every Components update the API Server, and the API Server persists the changes into etcd.
+
+    4a) Who creates the ReplicaSet when a Deployment is created?"
+        Deployment controller inside the control manager creates the replica set.
+
+    4b) Who creates Pods from a ReplicaSet?
+        ReplicaSet Controller inside the control manager creates the pods.
+
+
+5. How does kube-scheduler decide where to place a pod?
+
+    kube-scheduler watches for Pods that do not yet have a node assigned. It first filters out nodes that cannot run the Pod based on available CPU, memory, 
+    node readiness, taints/tolerations, node selectors, and affinity rules. It then scores the remaining nodes according to scheduling policies 
+    such as resource utilization and workload distribution. 
+    The highest-scoring node is selected, and the scheduler updates the Pod's nodeName via the API Server. The kubelet on that node then creates and runs the Pod.
+
+
+6. What is etcd and how do you secure it in production?
+
+    etcd is a distributed, highly available key-value database used by Kubernetes to store the cluster's state.
+    If etcd is lost and you don't have backups: Cluster Recovery = Extremely Difficult
+
+    kubectl > API Server > etcd
+
+    **** ControlManger,scheduler, kubelet, doesnt communicate directly with ectd, they communicate with api server and it reads/writes.
+
+    How to Secure etcd in Production?
+        1. Enable TLS Encryption
+        2. Restrict Network Access
+            Security Groups, Firewalls, Network Policies
+        3. Encryption secrets (enable EncryptionConfiguration)
+        4. Take Regular Backups
+                etcdctl snapshot save backup.db
+                Restore
+                    etcdctl snapshot restore backup.db
+        5. Use RBAC Properly
+        6. Run an HA etcd Cluster
+
+    6a) What happens if etcd goes down?
+        Existing Pods may continue running, but The control plane effectively becomes unavailable.
+
+    1. Can we access etcd directly?
+        Yes, but normally only cluster administrators should.
+        etcdctl, which is the official CLI for etcd.
+
+        to see keys stored in etcd
+        ---------------------------------
+            etcdctl get / --prefix --keys-only (Shows keys stored in etcd.)
+
+            In etcd, Kubernetes stores data in a hierarchical key format similar to a filesystem:
+
+            / means start from root and show me all the keys that begin with /
+            Since almost every Kubernetes object is stored under /registry
+                /registry/pods/default/nginx-pod
+                /registry/pods/default/api-pod
+                /registry/deployments/default/nginx
+                /registry/services/default/nginx-service
+
+            
+            etcdctl get /registry/pods --prefix --keys-only
+            shows only havinf prefix /registery/pods
+
+
+        to see values stored in etcd
+        -----------------------------------
+            etcdctl get /registry/pods/default/nginx-pod
+
+            now etcd will return the value associated to that key
+            and the value is not human readable, bcz Kubernetes stores objects in a serialized format.
+
+    2. Run an HA etcd Cluster
+
+        In prod grade we have 3 control planes, means 3 masters, all three dont run sametime,
+        they user leader election, cm1, cm2, cm3 only one cm performs the actions.
+
+        if cm1 fails then cm2 becomes leader. 
+        we have a etcd 1,2,3 each node stores a copy 
+        it uses the quorum, for 3 modes need 2 nodes alive
+
+        Why do we run multiple etcd nodes?
+            etcd is the source of truth for Kubernetes, so it must be highly available. 
+            In production, we typically run a 3-node or 5-node etcd cluster.
+            The nodes replicate data using the Raft consensus algorithm and maintain quorum. 
+            The API Server is configured with the addresses of all etcd members and communicates with the etcd cluster rather than a single node. 
+            This ensures that the cluster remains available even if one etcd node fails.
+
+
+        HA stands for High Availability. In Kubernetes, HA means deploying multiple control plane nodes and multiple etcd members 
+        so that the cluster remains operational even if one or more control plane components fail. 
+        A typical production setup uses 3 control plane nodes and a 3-node etcd cluster to avoid a single point of failure 
+        and ensure continuous availability of the Kubernetes API and cluster state.
+
+                           Load Balancer
+                                |
+                ---------------------------------
+                |               |              |
+                v               v              v
+
+            Master-1       Master-2       Master-3
+            --------       --------       --------
+            API Server     API Server     API Server
+            Scheduler      Scheduler      Scheduler
+            Controller     Controller     Controller
+            etcd           etcd           etcd
+
+                ---------------------------------
+                                |
+                            Worker Nodes
+
+        etcd data is replicated, not “copied manually”. etcd-1 ↔ etcd-2 ↔ etcd-3 , All members continuously replicate state.
+
+        All control plane nodes are: ALREADY RUNNING all the time, if one was down the other will be leader, Leader Election (using Lease object in Kubernetes)
+
+        What is Raft?
+            Raft is a consensus algorithm used by etcd
+        
+
+        The API Server is configured with the addresses of all etcd where ??
+            /etc/kubernetes/manifests/kube-apiserver.yaml (This file is the static pod manifest for API Server.)
+
+            Is this file present on every master node?
+                Each master node independently runs its own control plane components using static pod manifests, 
+                and they collectively form a highly available control plane.
+
+
+            Inside that file, you will see flags like: (API Server knows ALL etcd endpoints)
+            --etcd-servers=https://10.0.0.1:2379,https://10.0.0.2:2379,https://10.0.0.3:2379
+
+        
+7. Explain why kube-apiserver is stateless but etcd is stateful
+
+    kube-apiserver is stateless because it does not persist any cluster data locally. 
+    It only acts as a frontend that handles client requests, performs authentication, authorization, validation, 
+    and then stores or retrieves data from etcd. Since it does not hold any persistent state, multiple API server instances
+    can run behind a load balancer and serve requests interchangeably.
+
+    etcd, on the other hand, is stateful because it is the source of truth for the Kubernetes cluster. 
+    It stores all persistent cluster data such as Pods, Deployments, Services, and ConfigMaps, and ensures consistency using the Raft consensus algorithm. 
+    If etcd is lost, the cluster state is lost, which is why it requires high availability and backup.
+
+8. Explain CNI, CSI, CRI in Kubernetes architecture.
+
+    CRI(Container runtime interface) → runs containers
+    CNI(Container network interface) → connects pods over network
+    CSI(Container storage interface) → provides storage to pods
+
+    CRI: 
+        Kubernetes does NOT directly run containers. Instead, it talks to a runtime through CRI.
+        kubelet ↔ container runtime
+
+        Earlier Kubernetes was tightly coupled with Docker. Now Kubernetes supports multiple runtimes:
+        containerd
+            What CRI does
+                Pull images
+                Create containers
+                Start/stop containers
+                Manage container lifecycle
+            
+    CNI:
+        It defines how Pods get networking in Kubernetes
+        Kubernetes does NOT implement networking itself. nstead, it uses plugins like:
+        Calico, Flannel, Weave Net
+
+            What CNI does
+                
+                When Pod starts:
+                    assigns IP to Pod
+                    creates virtual network interfaces
+                    sets routing rules
+                    enables cross-node communication
+
+    CSI:
+        CSI defines how Kubernetes connects to storage systems.
+        Allows Pod ↔ Persistent Storage
+
+        What CSI does
+            Provision volumes
+            Attach/detach storage
+            Mount/unmount volumes
+            Resize volumes
+            Snapshot volumes
+
+    kubelet starts Pod lifecycle
+    CNI, CSI, CRI
+
+    CNI does NOT “give IP magically” — it builds Linux networking using namespaces, 
+    veth pairs, and routing.
+
+    Pod-to-Pod communication in Kubernetes is handled by the CNI plugin using Linux networking constructs like veth pairs and bridges. 
+    For same-node communication, traffic flows locally through a Linux bridge. For cross-node communication, 
+    the packet is routed through the host network using either overlay mechanisms like VXLAN (Flannel) or routing-based approaches like BGP (Calico), before reaching the destination node where it is delivered to the target Pod.
+
+    Pod-to-Pod (same node)  
+        Pod → veth → bridge → Pod
+
+    Cross-node Pod communication  
+        Pod → veth → bridge → NIC → network → NIC → bridge → veth → Pod (Network Interface Card)
+
+9. What happens when a node goes NotReady?
+
+    When a node becomes NotReady, it means the kubelet has stopped reporting its status or the node lease has expired.
+    The node controller in the control plane detects this and marks the node as NotReady in the API server.
+    The scheduler stops placing new pods on that node. After a grace period, a NoExecute taint is applied, and existing pods are evicted.
+    If those pods are managed by a controller like a Deployment, they are recreated on healthy nodes. This ensures workload continuity despite node failure.
+
+
+10. Difference between ReplicaSet, Deployment, StatefulSet, DaemonSet (with real use cases).
+
+    ReplicaSet: 
+        It ensures always a fixed number of pods were always running.
+        Key behavior
+            Maintains N replicas
+            If a pod dies → creates a new one
+            No rolling updates by itself
+
+    Deployment:
+        A Deployment manages ReplicaSets. It provides declarative updates + rollback + scaling
+        
+        Key behavior
+            Creates ReplicaSets
+            Handles rolling updates
+            Supports rollback
+            Manages versions
+
+        Why Deployment is important
+        It ensures:
+            ✔ zero downtime updates
+            ✔ version history
+            ✔ rollback support
+
+        Flow : Deployment → ReplicaSet → Pods
+
+    StatefulSet:
+        Used for stateful applications where identity matters.
+        “Each pod is unique and persistent”
+
+            Key behavior
+            Each Pod gets:
+                ✔ stable name
+                ✔ stable network identity
+                ✔ stable storage
+
+    DaemonSet: 
+        A DaemonSet ensures: “One Pod runs on EVERY node.”
+
+11. Difference between HPA, VPA, and Cluster Autoscaler.
+
+        HPA- Scales pods (Horizontal pod Autoscaler)
+        VPA- Adjusts pod resource(cpu/memory) (Vertical pod Autoscaler)
+        cluster auto scaler - scales nodes 
+
+        HPA:
+            Adds or removes Pods based on load, If CPU increases: 3 Pods → 6 Pods → 10 Pods
+            HPA watches metrics from: CPU , memory, promrtheus
+
+        VPA:
+            Adjusts CPU/memory of existing Pods
+            VPA analyzes usage over time: increases resources if under-provisioned
+            decreases if over-provisioned
+
+            It requires pod restart
+            scales UP/DOWN resources, does NOT change number of Pods
+
+        Cluster Autoscaler:
+            Adds or removes worker nodes in the cluster
+            If Pods cannot be scheduled: No space on nodes → add new node
+
+        
+12. How does Horizontal Pod Autoscaler (HPA) work internally?
+
+    Horizontal Pod Autoscaler works as a control loop inside the Kubernetes controller manager. 
+    It periodically fetches metrics such as CPU or memory usage from the metrics server or custom metrics APIs. 
+    It then compares the observed usage with the target utilization defined in the HPA configuration and calculates the desired number of replicas using a proportional formula. 
+    This desired replica count is bounded by minReplicas and maxReplicas and then updated in the Deployment or ReplicaSet. The ReplicaSet controller and scheduler then ensure that 
+    the required number of Pods are created and scheduled on available nodes. HPA continuously repeats this process every 15–30 seconds to adjust scaling based on real-time load.
+
+    HPA fetches metrics : kubectl get --raw /apis/metrics.k8s.io
+    Calculates the average metrics  Average CPU = (80 + 85 + 90) / 3 = 85%
+    Apply HPA formula:
+        desiredReplicas = currentReplicas × (currentMetric / targetMetric)
+
+
+    How often does HPA run?
+        Every 15–30 seconds (default)
+        Controlled by controller-manager sync loop
+
+    1. Metrics-server collects CPU usage
+        ↓
+    2. HPA reads metrics
+            ↓
+    3. HPA calculates desired replicas
+            ↓
+    4. HPA updates Deployment (replicas field via API Server)
+            ↓
+    5. Deployment controller updates ReplicaSet
+            ↓
+    6. ReplicaSet creates/deletes Pods
+            ↓
+    7. Scheduler assigns nodes
+            ↓
+    8. kubelet starts containers
+
+13. How do you handle burst traffic (like network traffic spikes in telecom)?
+
+        Burst traffic in Kubernetes is handled using a multi-layer approach. At the edge layer, load balancers and API gateways absorb and 
+        distribute sudden spikes. At the application layer, Horizontal Pod Autoscaler scales pods based on metrics like CPU, requests 
+        per second, or queue length. At the infrastructure layer, Cluster Autoscaler adds new nodes when pods cannot be scheduled. Additionally, 
+        production systems often use message queues like Kafka to buffer traffic and decouple request ingestion from processing. Because Kubernetes scaling 
+        is not instantaneous, systems also maintain a buffer of pre-warmed pods and apply rate limiting to handle sudden traffic surges effectively.
+
+14. What are taints and tolerations? Real production use case?
+
+    Taint(Node side)
+        A taint is like a “restriction sticker” on a node
+        It says Don’t place pods here
+
+    Tolerations(pod side)
+        A toleration is like permission on a pod
+        It says I am allowed to go even if the node has restrictions
+
+
+    When does a taint come on a node?
+        Manually by cluster admin
+        Automatically added by Kubernetes
+            Node becomes NotReady
+            Node is unhealthy
+   
+    Case 1: Node is tainted + pod has NO toleration
+        ❌ Pod will NOT be scheduled on that node
+        ✔ It may run on some other node
+        ❌ It does NOT “fail”, it just gets rejected from that node
+
+    Case 2: Node is tainted + pod HAS toleration
+        Pod is allowed to be scheduled on that node
+        “I am allowed to be placed on this node”
+       
+
+15. How do node affinity and pod affinity differ?
+
+    Both node affinity and pod affinity are about where pods should be scheduled
+    But they differ in what they match against.
+
+    NA- Place this pod on a node with certain labels
+    PA- Place this pod close to other specific pods
+
+    Node affinity selects which node a pod should run on, while pod affinity 
+    controls where a pod should run relative to other pods.
+
+
+16.What happens if scheduler cannot find a suitable node?
+
+    If the scheduler cannot find a suitable node, the Pod does
+    NOT crash or fail immediately. It goes into a Pending state and it shows FailedScheduling
+
+    Will it ever run later?
+        Yes — if conditions change:
+            new node added (Cluster Autoscaler)
+    Kubernetes does NOT “fail” pods when scheduling fails — it keeps them in
+    Pending state and continuously retries until conditions change.
+
+    How to debug in production:
+        kubectl get pod <pod-name> -o wide
+
+        kubectl describe pod <pod-name>
+
+        kubectl describe node <node-name>
+
+        kubectl get nodes -o wide
+
+        kubectl describe node <node>
+
+        kubectl get pods -n kube-system 
+
+        kubectl logs -n kube-system kube-scheduler-<node>
+
+17. A pod is stuck in CrashLoopBackOff. How do you debug it step by step?
+
+    CrashLoopBackOff is one of the most common production issues. 
+    It simply means: The container is starting → crashing → Kubernetes is retrying with increasing backoff delay.
+
+    So the Pod exists, but container is repeatedly failing.
+
+    🔍 2. Step-by-step debugging flow (real production approach)
+            STEP 1: Check pod status
+            kubectl get pod <pod-name> -n <namespace>
+
+            Look for:
+
+            STATUS: CrashLoopBackOff
+            RESTARTS: high number
+            STEP 2: Describe the pod (MOST IMPORTANT)
+            kubectl describe pod <pod-name> -n <namespace>
+
+            Check:
+
+            👉 Events section
+
+            Common clues:
+
+            Exit Code (1, 137, 139)
+            OOMKilled
+            Error pulling image
+            Missing config/secrets
+            STEP 3: Check container logs
+            kubectl logs <pod-name> -n <namespace>
+
+            If multiple containers:
+
+            kubectl logs <pod-name> -c <container-name> -n <namespace>
+            STEP 4: Check previous crashed logs (VERY IMPORTANT)
+
+            Because container is restarting:
+
+            kubectl logs <pod-name> -n <namespace> --previous
+
+            👉 This shows why it crashed
+
+            STEP 5: Check exit codes
+
+            From describe pod:
+
+            Exit Code	Meaning
+            1	App error
+            137	OOMKilled (memory issue)
+            126/127	command not found
+            139	segmentation fault
+            STEP 6: Check resources
+            kubectl describe node <node-name>
+
+            Look for:
+
+            memory pressure
+            CPU pressure
+            STEP 7: Check config issues
+
+            Common causes:
+
+            wrong env variables
+            missing ConfigMap
+            missing Secret
+            STEP 8: Check image issues
+
+            From events:
+
+            ImagePullBackOff
+
+            Or:
+
+            wrong image tag
+            private registry auth missing
+            STEP 9: Check probes (very common cause)
+
+            If liveness probe fails:
+
+            Liveness probe failed
+
+            👉 Kubernetes kills the container repeatedly → CrashLoopBackOff
+
+18. Explain the difference between CrashLoopBackOff vs OOMKilled vs ImagePullBackOff
+
+    | Error            | Meaning                                       |
+| ---------------- | --------------------------------------------- |
+| CrashLoopBackOff | App starts but keeps crashing repeatedly      |
+| OOMKilled        | Container killed due to memory limit exceeded |
+| ImagePullBackOff | Kubernetes cannot download the image          |
+
+
+    OOMKilled (Out Of Memory)
+        Container was killed because it used more memory than allowed
+
+    ImagePullBackOff
+        Kubernetes cannot pull the container image
+        Common causes
+            wrong image name
+            wrong tag (e.g. latest not found)
+            private registry without credentials
+            network/DNS issue
+
+
+20. Node is ready but pods are not scheduling—what could be reasons?
+
+    If a node is in Ready state but pods are not being scheduled,
+    it usually indicates scheduling constraints rather than node health issues. Common reasons 
+    include insufficient CPU or memory resources, node taints without matching 
+    tolerations, node selector or affinity rules not matching, persistent volume binding issues, 
+    resource quota limits, or pod anti-affinity constraints. The scheduler evaluates all these conditions before placing a pod. 
+    Even if the node is healthy, it will be skipped if it does not satisfy all scheduling requirements.
+
+21. Service is running but not reachable—how do you debug?
+    The Service exists, but traffic is not reaching the Pod correctly somewhere in the chain.
+    Client → Service → Endpoints → Pod → Container  So failure can happen at any layer.
+
+    🚨 2. Step-by-step debugging (real production approach)
+        STEP 1: Check Service exists
+        kubectl get svc -n <namespace>
+
+        Check:
+
+        ClusterIP
+        Port
+        TargetPort
+        STEP 2: Describe Service
+        kubectl describe svc <service-name> -n <namespace>
+
+        Look for:
+
+        selector labels
+        endpoints section
+        🔥 KEY CHECK: Endpoints
+
+        Run:
+
+        kubectl get endpoints -n <namespace>
+
+        OR:
+
+        kubectl get ep <service-name> -n <namespace>
+        ❗ If endpoints are EMPTY
+
+        👉 Problem is here:
+
+        Service selector does NOT match pod labels
+
+        ✔ This is the MOST common issue
+
+        STEP 3: Check Pod labels
+        kubectl get pods --show-labels -n <namespace>
+
+        Compare with service selector:
+
+        selector:
+        app: nginx
+        STEP 4: Check Pod is running
+        kubectl get pods -n <namespace>
+
+        If:
+
+        CrashLoopBackOff ❌
+        Not Ready ❌
+
+        Service exists but no working backend
+
+        STEP 5: Check Pod ports
+
+        Service:
+
+        port: 80
+        targetPort: 8080
+
+        But Pod must actually listen on 8080.
+
+        Check:
+
+        kubectl exec -it <pod> -- netstat -tulnp
+        STEP 6: Check Network policy (VERY IMPORTANT in production)
+        kubectl get networkpolicy -n <namespace>
+
+        If restrictive:
+
+        ❌ traffic blocked even if service is correct
+
+        STEP 7: Check Service type
+        Type	Issue
+        ClusterIP	internal only
+        NodePort	node firewall issue
+        LoadBalancer	cloud LB issue
+        STEP 8: Test inside cluster
+
+        Run debug pod:
+
+        kubectl run test --rm -it --image=busybox
+
+        Then:
+
+        wget <service-ip>
+        STEP 9: Check kube-proxy (advanced)
+
+        If service exists but no routing:
+
+        kubectl get pods -n kube-system | grep kube-proxy
+        🧠 3. Most common root causes
+        🔴 1. Label mismatch (MOST COMMON)
+        Service selector ≠ Pod labels
+
+        👉 endpoints = empty
+
+        🔴 2. Pod not Ready
+
+        Service routes only to READY pods
+
+        🔴 3. Wrong targetPort
+        Service: 80 → Pod: 8080 mismatch
+        🔴 4. NetworkPolicy blocking traffic
+        🔴 5. Wrong service type
+        ClusterIP accessed externally ❌
+        🔴 6. DNS issue
+        service-name.namespace.svc.cluster.local
+
+22. High CPU but no autoscaling triggered—why?
+
+        CPU threshold not reached
+
+        HPA not configured properly
+            kubectl get hpa
+
+        HPA depends on metrics-server: Metrics server issue
+            kubectl top pods
+
+        Scaling cooldown
+        Max replicas already reached
+
+23. Explain the difference between ClusterIP, NodePort, LoadBalancer with real traffic flow
+
+    ClusterIP(default)
+        Exposes service only inside the cluster
+
+            Pod A / Internal app
+            ↓
+            ClusterIP Service
+            ↓
+            kube-proxy
+            ↓
+            Pod B (backend)
+
+    NodePort  
+        Exposes service on each node’s IP + port
+
+            User (browser)
+            ↓
+            NodeIP:NodePort (e.g., 192.168.1.10:30080)
+            ↓
+            kube-proxy
+            ↓
+            Service (ClusterIP internally)
+            ↓
+            Pod
+
+    LoadBalancer
+        Creates a cloud-managed external load balancer
+
+        User (Internet)
+        ↓
+        Cloud Load Balancer (AWS ELB / GCP LB)
+        ↓
+        NodePort (created automatically)
+        ↓
+        ClusterIP Service
+        ↓
+        Pod
+
+24. How do you debug DNS issues inside a cluster?  
+
+        If DNS fails, services cannot be resolved even if everything else is fine.
+        Inside a cluster, DNS is handled by: CoreDNS (kube-system namespace)
+
+        nslookup <service-name>
+
+        If this fails → DNS issue
+
+        kubectl get pods -n kube-system | grep coredns
+
+        DNS is broken at cluster level
+
+        kubectl logs -n kube-system -l k8s-app=kube-dns
+
+        kubectl get svc -n kube-system
+
+        /etc/resolv.conf inside pod
+
+        kubectl get networkpolicy -A
+
+25. How do you analyze network latency between pods?
+
+        STEP 1: Identify if latency is real (baseline test)
+
+        Run inside source pod:
+
+        time curl http://<pod-ip-or-service>
+
+        OR:
+
+        time wget -qO- http://<service>
+
+        👉 Gives total request latency
+
+        STEP 2: Test raw pod-to-pod connectivity
+
+        Bypass service layer:
+
+        curl http://<pod-ip>
+        Compare:
+        Test	Purpose
+        Pod IP	pure network latency
+        Service IP	kube-proxy overhead
+        STEP 3: Measure network latency using tools
+
+        Inside pods:
+
+        Option 1: ping (ICMP)
+        ping <pod-ip>
+
+        ✔ shows RTT (round trip time)
+
+        Option 2: tcping / curl timing
+        curl -w "time_connect: %{time_connect}\ntime_total: %{time_total}\n" http://service
+        Option 3: netperf / iperf (best for real benchmarking)
+        iperf3 -c <target-pod-ip>
+
+        ✔ measures bandwidth + latency
+
+        STEP 4: Check DNS latency
+
+        Sometimes delay is DNS, not network:
+
+        time nslookup service-name
+        STEP 5: Check kube-proxy overhead
+
+        If Service is slower than Pod IP:
+
+        👉 issue may be kube-proxy (iptables/IPVS)
+
+        Check endpoints:
+
+        kubectl get endpoints <service>
+        STEP 6: Check node-level latency
+
+        If pods are on different nodes:
+
+        Node A → Node B traffic
+
+        Check:
+
+        kubectl get pod -o wide
+
+        Then test:
+
+        ping <node-ip>
+        STEP 7: Check CNI plugin performance
+
+        CNI affects cross-node traffic:
+
+        Calico
+        Flannel
+        Cilium
+
+        Look for:
+
+        VXLAN overhead
+        overlay network delay
+        STEP 8: Check CPU throttling / node pressure
+
+        Latency may NOT be network:
+
+        kubectl top nodes
+        kubectl top pods
+
+        Look for:
+
+        high CPU usage
+        memory pressure
+        STEP 9: Check Network Policies
+        kubectl get networkpolicy -A
+
+26. PV & PVC
+
+    A Persistent Volume is the actual storage.
+    AWS EBS Volume,Azure Disk,NFS Share,Local Disk
+
+    A PVC is a request for storage.
+    A developer says: I need 10GB storage, Kubernetes finds a matching PV and binds it.
+
+    apiVersion: v1
+        kind: ConfigMap
+
+        metadata:
+            name: app-config
+
+        data:
+            dh_host: postgress-db
+            enable_component: True
+
+        kubectl apply -f configmap.yaml
+
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+        name: nginx-pvc
+
+    spec:
+        accessModes:
+            - ReadWriteOnce
+
+        resources:
+            request:
+                storage: 1Gi
+
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata: 
+        name: nginx-deployment
+    
+    spec: 
+        replicas: 1
+
+        strategy:
+
+            type: RollingUpdate
+
+            rollingUpdate:
+                maxUnavailable: 1
+                maxSurge: 1
+
+        selector: 
+            matchLabels:
+                app: nginx
+
+        template:
+            metadata:
+                labels:
+                    app: nginx
+
+            spec:
+                containers:
+                    - name: nginx-container
+                      image: nginx
+
+                      ports:
+                        - containerPort: 80
+
+                    envFrom: 
+                        - configMapRef:
+                            name: app-config
+
+                    resources:
+                        requests:
+                            cpu: "100m"
+                            memory: "128Mi"
+
+                        limits:
+                            cpu: "500m"
+                            memory: "512Mi"
+
+                    volumeMounts:
+                        - name: nginx-volume
+                          mountPath: /usr/share/nginx/html
+
+                    livenessProbe:
+                        httpGet: 
+                            path: /
+                            port: 80
+                        initialDelaySeconds: 10
+                        periodSeconds: 5
+
+                    readinessProbe:
+                        httpGet:
+                            path: /
+                            port: 80
+                        initialDelaySeconds: 5
+                        PeriodSeconds: 5
+
+                volumes:
+                    - name : nginx-volume
+                      persistentVolumeClaim:
+                        claimName: nginx-pvc
+
+kubectl rollout status deployment nginx-deployment
+
+apiVersion: v1
+kind: Service
+metadata: 
+    name: nginx-service
+
+spec: 
+    selector:
+        app: nginx
+
+    ports: 
+     - protocol: TCP
+       port: 80
+       targetPort: 80
+
+    type: ClusterIP
+
+spec:
+    type: NodePort
+
+    ports:
+     - protocol: TCP
+       port: 80
+       targetPort: 80
+       nodePort: 30080
+
+kubectl get endpoints nginx-service
+
+
+
+27. livenessProbe, checks if the application is still alive, if it fails repeatedly
+    kubernetes restarts the containers.
+
+    readiness probe, checks if the application, is ready to recive the traffic
+    if it fails, pod stays running and but service stops sending traffic to it.
+
+
+Rolling Update is the default deployment strategy in Kubernetes. During an update, new Pods are created gradually while old Pods are terminated, ensuring zero or minimal downtime. The behavior is controlled by maxSurge and maxUnavailable.
+
+MaxSurge- How many extra Pods can Kubernetes temporarily create during an update?
+maxUnavailable - How many Pods are allowed to be down during the update?
+
+
+
+# Deploy a single pod
+
+apiVersion: v1
+kind: pod
+metadata:
+    name: redis
+spec:
+    conatiners:
+        - name: redis
+          image: redis123
+
+
+# Deployment
+
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+    name: deployment-1
+    labels:
+        app: busybox
+
+spec:
+    replicas: 2
+    selector: 
+        matchLabels:
+            app: busybox
+    template:               # This is basically a Pod definition inside a Deployment
+        metadata:
+            labels:
+              app: busybox
+    spec:
+        containers:
+            - name: busyboxc
+              image: busybox
+              command: ["/bin/bash", "-c", "echo k8"]
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deploy-app
+  labels:
+    app: frontend
+
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+  spec:
+     containers:
+       - name: httpd-frontend
+         image: httpd:2.4-alpine
+
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: replicaset-1
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx
+
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  minReadySeconds: 20
+  progressDeadlineSeconds: 600
+  replicas: 4
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      name: webapp
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: webapp
+    spec:
+      containers:
+      - image: kodekloud/webapp-color:v2
+        imagePullPolicy: IfNotPresent
+        name: simple-webapp
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 4
+  conditions:
+  - lastTransitionTime: "2026-06-15T09:27:04Z"
+    lastUpdateTime: "2026-06-15T09:27:04Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-06-15T09:26:29Z"
+    lastUpdateTime: "2026-06-15T09:34:37Z"
+    message: ReplicaSet "frontend-dbb8f4b47" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 2
+  readyReplicas: 4
+  replicas: 4
+  updatedReplicas: 4
+
+
+
+
+
+name: Deploy-To-EKS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        run: |
+          docker build -t my-nginx-app .
+
+      - name: Tag Image
+        run: |
+          docker tag my-nginx-app:latest \
+          <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/my-nginx-app:latest
+
+      - name: Push Image
+        run: |
+          docker push \
+          <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/my-nginx-app:latest
+
+      - name: Update Kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+          --region ap-south-1 \
+          --name my-eks-cluster
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+
+      - name: Verify Rollout
+        run: |
+          kubectl rollout status deployment/nginx-app
+
+
+dkr = Docker Registry endpoint
+It is the endpoint where Docker pushes/pulls images.
+
+123456789012.dkr.ecr.ap-south-1.amazonaws.com/nginx-app
+
+docker build -t nginx-app .
+
+docker tag nginx-app 1234.dkr.ecr.ap-south-1.amazon.com/nginx-app:{GITHUB_SHA}
+
+docker push 1234.dkr.ecr.a--south-1.amazon.com/nginx-app:{GITHUB_SHA}
+
+aws eks update-kubeconfig --region ap-south-1 --name my-eks-cluster
+
+aws eks update-kubeconfig retrieves the EKS cluster endpoint and authentication configuration from AWS and updates the local kubeconfig file. This allows kubectl to communicate with the EKS cluster. It is commonly used in CI/CD pipelines before executing kubectl commands such as apply, rollout, or get pods.
+
+aws eks update-kubeconfig --region ap-south-1 --name my-eks-cluster
+
+
+kubectl set image deployment/backend backend=repo/backend:${IMAGE_TAG}
+
+
+28. Can one Pod communicate with another Pod without a Service?
+    Yes. Every Pod gets its own routable IP address in the cluster. Pods can communicate directly using Pod IPs and application ports.
+    However, in production we usually use a Service because Pod IPs change when Pods are recreated.
+
+Q: Is containerPort required for a Service to work?
+    No. containerPort is optional metadata in the Pod spec. The Service uses targetPort to decide where to send traffic. 
+    As long as the application is listening on the targetPort, the Service works even if containerPort is omitted or incorrect.
+
+    containerPort = "The application listens here" (documentation/metadata)
+    targetPort    = "The Service sends traffic here" (actual routing)
+
+    In practice, most teams keep them the same:
+
+    containerPort: 80
+    targetPort: 80
+
+    because it's clear and avoids confusion, but Kubernetes does not require them to match.
+
+
+---nginx  pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx:latest
+      ports:
+        - containerPort: 80
+
+--service
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+
+spec:
+  type: NodePort
+
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30088 
+
+
+
+
+
+1. Probes allow Kubernetes to check the application state.
+
+    What problem do probes solve?
+
+        Without probes, Kubernetes only knows whether the container process exists. 
+        A Flask app can be running but still be:
+            Starting up and not ready yet.
+            Stuck in a deadlock or infinite loop.
+            Connected to a broken dependency (DB/cache) and returning errors.
+            Recoverable only by restarting the container.
+
+
+        Startup Probe   -> Give me time to boot
+        Readiness Probe -> Can I take traffic?
+        Liveness Probe  -> Should I be restarted?
+
+
+Q: If the CI/CD runner is new every time, won't all Kubernetes resources be recreated?
+
+    No. Kubernetes stores the cluster state in etcd, not on the CI/CD runner. 
+    When kubectl apply runs, Kubernetes compares the desired state in the manifests with the current state 
+    in the cluster. Unchanged resources remain unchanged, modified resources are updated, and only missing 
+    resources are created. The runner is ephemeral, but the cluster state persists.
+
+Q: What happens when you create an EKS cluster?
+
+    Creating an EKS cluster provisions the managed Kubernetes control plane, including the API server, scheduler, 
+    controller manager, and etcd. No worker nodes are created by default. To run workloads, you must add worker nodes 
+    through managed node groups, self-managed EC2 instances, or serverless options like AWS Fargate.
+
+    You don't see:
+        API Server,Scheduler,etcd,Controller Manager
+        as separate resources because AWS manages them for you.
+
+
+    1. Cluster IAM Role
+        This role is assumed by the EKS Control Plane. Sometimes the control plane needs to talk to AWS services.
+        Those permissions come from: Cluster IAM Role
+
+    2. Node IAM Role
+        Attached to worker nodes (EC2 instances).
+        This role is attached to the EC2 worker nodes.
+        Why do nodes need permissions?
+            Because the kubelet and containers running on the node need AWS access.
+
+            AmazonEKSWorkerNodePolicy
+            AmazonEC2ContainerRegistryReadOnly
+            AmazonEKS_CNI_Policy
+
+    Node = EC2 Instance (in EKS), In EKS, a worker node is usually an EC2 instance.
+    Node Group = Group of EC2 Instances
+    A Node Group is a collection of EC2 instances with similar configuration:
+    same Instance type, AMI, IAM Role.
+
+
+Q: Can a Kubernetes administrator log in to the control plane?
+
+    In a self-managed Kubernetes cluster (kubeadm), yes. The administrator can SSH into the control plane node and inspect components such as the API server, scheduler, controller manager, and etcd.
+    In managed Kubernetes services such as Amazon Web Services EKS, no. The control plane is managed by the provider and is not directly accessible. 
+    Administrators interact with it through Kubernetes APIs, kubectl, and provider-managed logs and monitoring.
+
+
+Q: OIDC Provider URL
+    Used for: IRSA (IAM Roles for Service Accounts)
+    Allows Pods to securely assume IAM roles without storing AWS access keys.
+
+    Certificate Authority: Used by kubectl <-> API Server
+    to establish TLS trust and verify the EKS API server identity.
+
+

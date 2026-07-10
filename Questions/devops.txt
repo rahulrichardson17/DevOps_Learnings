@@ -1,0 +1,254 @@
+1️⃣ Git pull works on your system but fails in Jenkins — what would you check?
+
+2️⃣ Application suddenly starts generating duplicate logs in production — what could be happening?
+
+3️⃣ Kubernetes service exists but pods cannot communicate — where would you investigate?
+
+4️⃣ CI/CD pipeline deployed successfully but users still see application errors — what would you verify?
+
+5️⃣ Website becomes slow only during office hours — what possibilities would you check?
+
+6️⃣ EC2 instance is running but application port is not reachable — what checks come first?
+
+7️⃣ One microservice starts consuming excessive memory — what metrics would you verify?
+
+8️⃣ Docker image builds successfully but container exits immediately after starting — why?
+
+9️⃣ Database connection suddenly reaches maximum limits — what would you investigate?
+
+🔟 Users report login failures but infrastructure dashboards look healthy — where would you start?
+
+
+----------------------
+Explain your project architecture.
+Why do you use EKS instead of ECS?
+Have you handled cloud cost or budget management?
+Explain how you set up monitoring tools (for example, CloudWatch, Grafana, etc.).
+Write a Bash script to check disk usage and CPU usage.
+Write a Terraform configuration to create an EC2 instance.
+What would you do if the Terraform state file is corrupted?
+If infrastructure is created outside Terraform and you notice it, how do you handle it?
+What steps have you taken to prevent infrastructure from being deleted unintentionally or by mistake?
+What do you do if a Jenkins pipeline fails?
+What is the difference between CMD and RUN in Docker?
+Explain how you set up an automatic trigger in Jenkins when code is pushed to GitHub.
+Explain the deployment strategies you have used in your project.
+What do you do when you receive a P1 incident?
+How do you prevent two associates from running Terraform at the same time?
+How do you setup disaster recovery process for a zero-downtime application.
+
+----------------------------
+### 🔹 GitHub Actions / CI-CD
+
+1. What is the purpose of reusable workflows in GitHub Actions?
+2. How do you prevent secrets or credentials from being pushed to GitHub repositories?
+3. How do you handle multiple Java versions in GitHub Actions pipelines?
+4. What is dependency scanning in a CI/CD pipeline, and why is it important?
+5. What is the Trunk-Based Development Git strategy?
+6. How do you clean up completed GitHub Actions workflow runs?
+7. How do GitHub Actions runner pods scale dynamically in Kubernetes?
+
+### 🔹 Docker
+
+8. How do you build and manage Docker images that support multiple architectures such as AMD64 and ARM64?
+9. What is the difference between COPY and ADD in a Dockerfile?
+10. How do you reduce Docker image size for production workloads?
+11. What happens internally when you run docker build?
+
+### 🔹 AWS / Cloud
+
+12. What AWS cost optimization strategies have you implemented in production environments?
+13. Explain the step-by-step process to upgrade an Amazon EKS cluster with zero or minimal downtime.
+14. What is AWS PrivateLink, and how does it differ from VPC Peering and Transit Gateway?
+15. How do you design Disaster Recovery (DR) for a multi-region AWS architecture?
+16. How do you grant IAM permissions to Kubernetes workloads in EKS using IRSA?
+
+### 🔹 Kubernetes
+
+17. What is the difference between Deployment, StatefulSet, and DaemonSet?
+18. What are Pod Security Standards (PSS) in Kubernetes, and how do they enforce security?
+19. What is a Pod Disruption Budget (PDB), and why is it important?
+20. How does Kubernetes service discovery work internally?
+21. How does Kubernetes scheduling decide pod placement?
+
+### 🔹 Terraform / IaC
+
+22. What is the purpose of Terraform state, and why is remote state important?
+23. How do you manage multiple environments (dev, staging, prod) in Terraform?
+24. What happens if Terraform state file is deleted and no backup exists?
+25. How do you handle drift detection in Terraform-managed infrastructure?
+
+
+---------------------
+
+hashtag#ShellScripting_Interview_Questions (0–3 Years DevOps Engineer)
+
+🔹 What is the use of "#!/bin/bash" in shell script?
+🔹 What is the use of "$0" variable?
+🔹 What is the use of "$1", "$2", "$3" parameters?
+🔹 What is the use of "$#" variable?
+🔹 What is the use of "$?" variable?
+
+🔹 What is the use of "if" statement?
+🔹 What is the use of "elif" statement?
+🔹 What is the use of "case" statement?
+🔹 What is the use of "for" loop?
+🔹 What is the use of "while" loop?
+
+🔹 What is the use of "break" statement?
+🔹 What is the use of "continue" statement?
+🔹 What is the use of functions in shell scripting?
+🔹 What is the use of "read" command?
+🔹 What is the use of "echo" command?
+
+🔹 What is the use of "expr" command?
+🔹 What is the use of "cut" command?
+🔹 What is the use of "sort" command?
+🔹 What is the use of "uniq" command?
+🔹 What is the use of "wc" command?
+
+🔹 What is the use of "head" command?
+🔹 What is the use of "tail" command?
+🔹 What is the use of "tee" command?
+🔹 What is the use of "xargs" command?
+🔹 What is the use of "export" command?
+
+🔹 What is the use of input/output redirection?
+🔹 What is the use of pipes ("|") in Linux?
+🔹 What is the use of environment variables?
+🔹 What is the use of command substitution?
+🔹 What is the use of shell scripting in DevOps?
+
+------------------------
+• What is Docker and how does it work?
+• Difference between Docker Image and Container
+• What is a Dockerfile and how do you create one?
+• Docker Volumes vs Bind Mounts
+• Docker Networking and its different types
+• CMD vs ENTRYPOINT in Docker
+• How to optimize Docker image size?
+• What are Multi-stage Docker Builds?
+• Managing and analyzing Docker container logs
+• Debugging failed Docker containers
+• What is Docker Compose and when should you use it?
+• Best practices for securing Docker containers
+• Docker Compose vs Kubernetes
+• Managing secrets in Docker
+• Deploying applications using Docker containers
+• Monitoring Docker containers in production
+• Docker integration with CI/CD pipelines
+• Docker Registries and how they work
+• Common Docker production issues & troubleshooting
+
+
+𝐃𝐞𝐯𝐎𝐩𝐬 𝐅𝐮𝐧𝐝𝐚𝐦𝐞𝐧𝐭𝐚𝐥𝐬 𝐘𝐨𝐮 𝐌𝐮𝐬𝐭 𝐎𝐰𝐧
+1. What’s the real difference between CPU bottleneck vs I/O bottleneck, and how do you identify each?
+2. Why do systems fail even when CPU and memory look fine?
+3. What actually happens when a Kubernetes Pod restarts?
+4. Difference between readiness and liveness probes, and how each can break production.
+5. What problem does infrastructure as code solve, and when can it become dangerous?
+6. How does Terraform state work, and what happens when it drifts?
+7. What’s the difference between horizontal and vertical scaling, and when should you avoid autoscaling?
+8. Why do deployments succeed but users still see errors?
+9. How do you decide between rollback vs hotfix during an incident?
+10. What’s the difference between metrics, logs, and traces, and when do you start with each?
+
+
+
+Difference between Docker and Kubernetes?
+Difference between VM and Container?
+Difference between CMD and ENTRYPOINT?
+Difference between Image and Container?
+Difference between Deployment and StatefulSet?
+Difference between Service and Ingress?
+Difference between ConfigMap and Secret?
+Difference between ClusterIP and NodePort?
+Difference between Helm and kubectl?
+Difference between Jenkins and ArgoCD?
+
+Difference between CI and CD?
+Difference between Continuous Delivery and Continuous Deployment?
+Difference between Git Fetch and Git Pull?
+Difference between Git Merge and Git Rebase?
+Difference between Git Reset and Git Revert?
+Difference between Terraform and Ansible?
+Difference between Mutable and Immutable Infrastructure?
+Difference between Horizontal and Vertical Scaling?
+Difference between Monitoring and Observability?
+Difference between Logging and Monitoring?
+
+Difference between TCP and UDP?
+Difference between HTTP and HTTPS?
+Difference between Authentication and Authorization?
+Difference between SLA, SLO, and SLI?
+Difference between Incident and Problem?
+Difference between High Availability and Fault Tolerance?
+Difference between Blue-Green and Canary Deployment?
+Difference between ECS and EKS?
+Difference between Prometheus and Grafana?
+Difference between Docker Compose and Kubernetes?
+
+
+--------
+ Where will you use Kubernetes?
+🔹 Where will you use Docker?
+🔹 Where will you use Terraform?
+🔹 Where will you use Jenkins?
+🔹 Where will you use GitOps?
+
+🔹 Where will you use Helm?
+🔹 Where will you use ECS?
+🔹 Where will you use EKS?
+🔹 Where will you use Lambda?
+🔹 Where will you use EC2?
+
+🔹 Where will you use S3?
+🔹 Where will you use EBS?
+🔹 Where will you use EFS?
+🔹 Where will you use Route53?
+🔹 Where will you use Load Balancers?
+
+🔹 Where will you use Auto Scaling?
+🔹 Where will you use DaemonSet?
+🔹 Where will you use StatefulSet?
+🔹 Where will you use ConfigMap?
+🔹 Where will you use Secrets?
+
+🔹 Where will you use Blue-Green deployment?
+🔹 Where will you use Canary deployment?
+🔹 Where will you use Prometheus?
+🔹 Where will you use Grafana?
+🔹 Where will you use centralized logging?
+
+🔹 Where will you use microservices?
+🔹 Where will you use containerization?
+🔹 Where will you use Infrastructure as Code?
+🔹 Where will you use monitoring tools?
+🔹 Where will you use CI/CD pipelines?
+
+
+1. How does a CI/CD pipeline work end-to-end (commit → production)?
+2. What happens internally when you run a Docker container?
+3. How does Kubernetes schedule pods on nodes?
+4. What causes CrashLoopBackOff and how do you debug it?
+5. Difference between readiness and liveness probes? 
+6. Explain Kubernetes architecture (API server, scheduler, etcd).
+7. How does service discovery work in Kubernetes?
+8. What happens when you run kubectl apply internally?
+9. Difference between Deployment, StatefulSet, and DaemonSet?
+10. How do you handle configuration management across environments?
+11. How does Terraform manage state and dependencies internally?
+12. What is Terraform drift and how do you detect it?
+13. How do you design Infrastructure as Code for multiple environments?
+14. How does DNS resolution work step by step?
+15. What is the difference between Layer 4 and Layer 7 load balancers?
+16. If your application is slow under load, how do you identify bottlenecks?
+17. How do you design monitoring and alerting for production systems?
+18. How do you implement secure authentication between services?
+19. How do you design zero-downtime deployment strategies?
+20. If a production system goes down, how do you approach debugging step by step?
+
+
+diff b/w copy and add
+cmd entry point
+multiple run commands in docker file, what will happen

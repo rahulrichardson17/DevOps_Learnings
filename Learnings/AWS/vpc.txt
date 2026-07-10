@@ -1,0 +1,521 @@
+1. Service Models
+
+    AWS is primarly an IaaS(Infrastructure as a service) provider but it actually offers service
+    across all three major cloud services.
+
+    | Service Model                          | What You Manage                            | AWS Examples                                  |
+    | -------------------------------------- | ------------------------------------------ | --------------------------------------------- |
+    | **IaaS** (Infrastructure as a Service) | OS, middleware, runtime, application, data | Amazon EC2, Amazon EBS, Amazon VPC            |
+    | **PaaS** (Platform as a Service)       | Application and data only                  | AWS Lambda, AWS Elastic Beanstalk, Amazon RDS |
+    | **SaaS** (Software as a Service)       | Just use the software                      | Amazon QuickSight, Amazon WorkDocs            |
+
+
+    If AWS is managing the servers for you, the service is usually outside your VPC.
+
+    Most Important Services Inside vs Outside VPC
+    Inside VPC ✅
+        These get private IPs from your subnets.
+
+        Compute
+        Amazon EC2
+        Amazon ECS Tasks
+        Amazon EKS Worker Nodes
+        AWS Lambda (when configured with VPC)
+        Databases
+        Amazon RDS
+        Amazon Aurora
+        Amazon ElastiCache
+        Amazon DocumentDB
+        Networking
+        VPC
+        Subnets
+        Route Tables
+        Security Groups
+        NACLs
+        NAT Gateway
+        Internet Gateway
+        VPC Endpoints
+        Load Balancers
+        Application Load Balancer
+        Network Load Balancer
+
+    Outside VPC ❌
+        These are AWS-managed services that you access over AWS APIs.
+
+        Storage
+        Amazon S3
+        Amazon Glacier
+        Identity
+        AWS IAM
+        Monitoring
+        Amazon CloudWatch
+        AWS CloudTrail
+        Messaging
+        Amazon SQS
+        Amazon SNS
+        DNS
+        Amazon Route 53
+        Secrets
+        AWS Secrets Manager
+        AWS Systems Manager Parameter Store
+        Container Registry
+        Amazon ECR
+        CI/CD
+        AWS CodePipeline
+        AWS CodeBuild
+        AWS CodeDeploy
+
+2)what is VPC means ??
+    VPC stands for Virtual Private Cloud is a private network inside AWS cloud where you can create and run your resources securely.
+
+    Why do we need VPC?
+        ✅ Security
+            Keep databases private
+            Control network access
+        ✅ Isolation
+            Your AWS resources are separated from other customers
+        ✅ Control
+            You decide:
+            IP ranges
+            Subnets
+            Routing
+            Firewall rules
+
+3)Subnets
+    A subnet is a smaller network inside your VPC where you place your AWS resources.
+    VPC = Your house
+    Subnets = Different rooms inside your house
+    Resources = Things kept inside each room
+
+    A VPC can have multiple subnets, and each subnet belongs to only one VPC.
+
+    Why do we need Subnets?
+        We create subnets mainly for:
+            Network organization,Security separation,High availability,Controlling internet access
+        A production application should not keep everything in one place.
+
+        You separate: Frontend servers, Application servers, Database servers
+        into different subnets.
+
+    Types of Subnets:
+        Mainly two types:
+        1. Public Subnet
+            A subnet is called public when: It has a route to an Internet Gateway, Resources can have public IP addresses.
+        2. Private Subnet
+            A subnet is called private when: It does not have direct internet access, Resources do not have public IP addresses
+
+    Can a subnet span multiple Availability Zones?
+        No,A subnet belongs to one Availability Zone only.
+        No. A subnet is always associated with a single Availability Zone. To achieve high availability, 
+        we create multiple subnets across multiple AZs.
+
+    Can we create multiple subnets in one VPC?
+        yes
+
+    What happens when we launch EC2?
+        when we launch it in the private subnet,it gets the private ip addresses from that subnet.
+
+    If I have 3 AZs, can I create only 3 subnets?
+        No. AZ count does not limit subnet count. We can create multiple subnets in each AZ as long as we have available CIDR space.
+
+4)CIDR (IP range)
+    cidr stands for Classless Inter-Domain Routing
+    10.0.0.0/16, 10.0.1.0/24 
+    First understand what is /16 and /24 mean. They are called CIDR notation.
+
+    cidr tells aws, How many bits are fixed for the network and how many IP addresses are available.
+    IPv4 address has 32 bits. IPv6 address has 128 bits
+
+    IPv4
+        10.0.0.0/16
+            First 16 bits = Network portion
+            Remaining 16 bits = Host portion
+            No of hosts 2^16 = 65,536 addresses
+
+            Can we use /32, /8, /24 etc?
+                Yes. We can use many values. CIDR can be: /0  to  /32, because IPv4 has 32 bits.
+
+            Why do we always use 2^something?
+                Because computers work in binary.Binary has only two possible values: 0 and 1
+                Number of possible combinations = 2^(number of bits)
+    
+            AWS subnet note: AWS reserves 5 IP addresses in every subnet.
+
+            10.0.1.0     Network address
+            10.0.1.1     VPC router
+            10.0.1.2     DNS
+            10.0.1.3     Future AWS use
+            10.0.1.255   Broadcast address
+
+            CIDR     Host bits     Total IPs
+            /32          0          1
+            /24          8          256
+            /16          16         65,536
+            /8           24         16 million
+
+
+    Why do we choose /16 for VPC?
+        Because a VPC is the main network boundary.
+            Inside a VPC, we may need:
+            Public subnets
+            Private application subnets
+            Database subnets
+            Multiple AZs
+            Future expansion
+
+    Bigger CIDR gives more IPs, but in AWS networking we choose a balanced size. /16 is popular because it gives enough room for 
+    multiple subnets, multiple AZs, and future growth without causing IP management and overlap problems.
+
+5)Route Tables
+    A subnet by itself does not decide whether it is public or private.The Route Table attached to the subnet decides that.
+
+    without Route Table:
+        We can create a vpc and create a public subnet in that, and launch an EC2, it gets the public ip, but aws doesnt
+        know where to send the traffic. Ec2 can't access the internet. So we need to create a route for that.
+
+    every subnet must be associated with a route Table. For creation, we just provide name of the route and vpc id.
+
+    VPC
+    |
+    |
+    ------------------------
+    |                      |
+    Public Subnet       Private Subnet
+    |                      |
+    Route Table A       Route Table B
+
+    Route Table A:
+    Internet Gateway
+
+    Route Table B:
+    NAT Gateway
+
+
+    What makes a subnet public?
+        A subnet becomes public when its route table has a route to an Internet Gateway.
+    What makes a subnet private?
+        A subnet is private when it does not have a direct route to an Internet Gateway. It usually uses a NAT Gateway for outbound internet access.
+    Can multiple subnets share the same route table?
+        Yes
+    Can one subnet have multiple route tables?
+        No, A subnet can have only one associated route table. One route table can be associated with multiple subnets.
+    
+6)Internet Gateway (IGW)
+    An Internet Gateway (IGW) is a component that allows resources inside your VPC to communicate with the public internet.
+    Your VPC = Your house
+    Internet Gateway = Main gate of your house
+    Internet = Outside world
+    Without a gate, nobody can enter or leave your house. Without an IGW, resources inside a VPC cannot communicate with the internet.
+
+    How does an EC2 access the internet?
+        EC2 must have a public IP, and subnet should be having the route table and route table is attached to the IGW, and if the Security Group
+        allows the traffic.
+
+    IGW is attached to VPC, not the subnet
+
+    Can one VPC have multiple IGWs?
+        No, A VPC can have 0 or 1 IGW
+    Does IGW cost money?
+        No
+    Can a private subnet use an Internet Gateway directly?
+        No. Private subnets do not have a route directly to an Internet Gateway. They use a NAT Gateway for outbound internet access.
+
+7)NAT Gateway (Network Address Translation Gateway)
+    A NAT Gateway allows resources in a private subnet to access the internet, but prevents the internet from directly accessing those resources.
+
+    Why do we need NAT Gateway?
+        Imagine you have application servers, inside a private subnet.
+        They need internet access for:
+            Downloading OS updates,Installing packages,Pulling Docker images,Downloading dependencies, instead of exposing
+            the server, we use the NAT Gateway.
+
+    Where is NAT Gateway created?
+        NAT Gateway is created inside a PUBLIC subnet.Because it needs internet access itself.
+        No. NAT Gateway must be placed in a public subnet because it needs a route to an Internet Gateway.
+
+    Each AZ has its own NAT Gateway.
+
+    No, you cannot SSH into a private subnet through a NAT Gateway.because SSH is an incoming connection.For this to work, 
+    the server must be reachable from the internet.To access private instances, we use a bastion host(Jump server)
+
+
+    Does NAT Gateway allow inbound traffic?
+        No. NAT Gateway only allows outbound connections initiated from private resources.
+    
+8)Security Groups (SG)
+    A Security Group is a virtual firewall attached to AWS resources (like EC2 instances) that controls inbound and outbound traffic.
+    Security Group = Security guard protecting your server
+
+    It decides:
+        Who can enter? (Inbound rules)
+        Where your server can go? (Outbound rules)
+    
+    Inbound Rules (Incoming Traffic)
+        Inbound rules control:Traffic coming INTO your instance
+
+    Outbound Rules (Outgoing Traffic)
+        Outbound controls:Traffic leaving your instance
+
+    Is Security Group attached to subnet?
+        No. Security Groups are attached to network interfaces associated with resources like EC2. 
+        Multiple instances in a subnet can have different security groups.
+
+    Is Security Group stateful?
+        Yes. If inbound traffic is allowed, the return traffic is automatically allowed.
+
+    Can one EC2 have multiple Security Groups?
+        Yes. An EC2 instance can have multiple Security Groups attached. The rules from all groups are combined.
+        Effective rules = combined permissions.
+    
+    AWS Security Group:
+        ✅ Stateful
+            Remembers connections
+            Return traffic is automatically allowed
+        
+        Network ACL:
+        ❌ Stateless
+            Does not remember connections
+            You must allow both directions separately
+
+    Stateful means AWS tracks the connection state, so when inbound traffic is allowed, the return traffic is 
+    automatically permitted without requiring an outbound rule.
+
+9)NACLs
+    Network ACL (NACL)
+    A Network ACL (NACL) is a firewall that protects an entire subnet.
+
+    NACL protects the Subnet. One NACL can protect multiple subnets.
+    Security Group protects the EC2 (actually its network interface).
+
+    Main Gate  -------------> NACL
+    Apartment Door ---------> Security Group
+
+    The Main Gate (NACL) decides who can enter the apartment complex.
+    The Apartment Door (Security Group) decides who can enter your apartment.
+    A visitor must pass both.
+
+    NACL is Stateless,So with NACL you must configure both directions.Without the outbound rule, the response is blocked.
+
+    Rule Numbers
+        NACL evaluates rules from the lowest rule number to the highest.
+        Example:
+            Rule Action
+            100	 Allow HTTP
+            110	 Allow HTTPS
+            120	 Deny All
+        The first matching rule wins.
+
+    sg evaluates all rules together, nacl evaluates according to the order.
+
+    Can NACL deny traffic?  
+        Yes.
+    Security Groups support only allow rules (everything else is implicitly denied), whereas NACLs support both allow and explicit deny rules.
+
+    Which is checked first, NACL or Security Group?
+        NACL is evaluated first because it protects the subnet. If NACL allows the traffic, AWS then evaluates the Security Group attached to the instance. The traffic reaches the instance only if both allow it.
+
+    NACL works for BOTH public and private subnets.
+
+    Route Table → Decides whether the subnet is public or private.
+    NACL → Acts as a firewall for the subnet, whether it's public or private.
+    Security Group → Acts as a firewall for individual EC2 instances (or ENIs).
+
+10)What is VPC Peering?
+    VPC Peering is a private connection between two VPCs that allows them to communicate using their private IP addresses.
+    Think of it as a private bridge between two VPCs.
+
+    By default 2 VPCs doesnt communicate, Even though they are in AWS, VPCs are isolated from each other.
+
+    How does AWS know where to send traffic?
+        Route Table
+    CIDR blocks must NOT overlap for Peering, both vpc have same cidr, then it wont allow.
+
+    AWS supports inter-region VPC peering.
+
+    No Transitive Routing
+        VPC-A ---- VPC-B ---- VPC-C
+        A is peered with B. B is peered with C.
+        Can A talk to C? ❌ No.
+
+        Traffic does not automatically pass through B.
+        There is no transitive routing.
+
+    Does VPC Peering use the internet?
+        No. Traffic stays on AWS's private backbone network.
+    
+11)Transit Gateway
+    A Transit Gateway is a central router (hub) that connects multiple VPCs and on-premises networks.
+    Instead of connecting every VPC to every other VPC, all VPCs connect to the Transit Gateway.
+
+    VPC Peering = Direct phone call between two people.
+    Transit Gateway = A central telephone exchange.
+
+    Why do we need it?
+        Suppose a company has 5 VPCs. Without Transit Gateway, using VPC Peering, Every VPC needs peering with many others.
+        This quickly becomes difficult to manage.
+
+        With Transit Gateway
+            Transit Gateway
+                    |
+        ---------------------------------
+        |        |        |       |      |
+        VPC-A    VPC-B    VPC-C   VPC-D  VPC-E
+        Every VPC connects only once.
+
+        If traffic is for another VPC, send it to TGW." TGW then forwards it to the correct VPC.
+
+12)VPC Endpoint
+    A VPC Endpoint allows resources inside a VPC to access AWS services privately, 
+    without going through the Internet Gateway, NAT Gateway, or the public internet.
+
+    Why do we need VPC Endpoints?
+    Suppose you have: Private EC2, It wants to download a file from S3.
+    Without a VPC Endpoint:
+        Private EC2
+            |
+        NAT Gateway
+            |
+        Internet Gateway
+            |
+        Public Internet
+            |
+        Amazon S3
+    Even though S3 is an AWS service, your traffic goes through the NAT Gateway.
+    Problems: NAT Gateway cost 💰, Extra network hop, Less secure
+
+    With VPC Endpoint:
+        Private EC2
+            |
+        VPC Endpoint
+            |
+        Amazon S3
+        Traffic never leaves AWS's private network.No NAT Gateway required.
+
+    two types of Endpoints:
+        1. Gateway Endpoint: Used only for: Amazon S3,DynamoDB
+            Architecture:
+
+            Private EC2
+                |
+            Gateway Endpoint
+                |
+            Amazon S3
+
+            No NAT Gateway needed.
+
+        2. Interface Endpoint
+            Used for almost every other AWS service.
+            Examples: Secrets Manager, Systems Manager (SSM), ECR, CloudWatch, KMS, SNS,SQS
+                Architecture:
+                    Private EC2
+                        |
+                    Interface Endpoint
+                        |
+                    Secrets Manager
+
+        How Gateway Endpoint Works, It updates the Route Table.
+            Example:
+            Destination          Target
+            10.0.0.0/16          local
+            S3 Prefix List       Gateway Endpoint
+
+            When EC2 accesses S3:
+            EC2
+            |
+            Route Table
+            |
+            Gateway Endpoint
+            |
+            S3
+
+        How Interface Endpoint Works
+            AWS creates an Elastic Network Interface (ENI) inside your subnet.
+                Private Subnet
+                    EC2
+                    |
+                    Private IP
+                    |
+                    ENI
+                    |
+                    Secrets Manager
+                            The EC2 talks to the ENI using a private IP.
+    
+    Why do only S3 and DynamoDB support Gateway Endpoints?
+        S3 and DynamoDB are designed as regional AWS services that integrate directly with VPC route tables. 
+        A Gateway Endpoint simply adds a route, so no ENI is required. Most other AWS services expose APIs that require 
+        an Elastic Network Interface inside the VPC, so they use Interface Endpoints (AWS PrivateLink).
+
+    Gateway Endpoint = Route table-based implementation (only S3 and DynamoDB).
+    Interface Endpoint = ENI/PrivateLink-based implementation (almost everything else).
+
+13)VPC Flow Log?
+    A VPC Flow Log records information about network traffic entering and leaving your AWS network resources.
+    A CCTV camera for network traffic.It only records it.
+
+    Where can we enable Flow Logs?
+        1. VPC Level
+            Logs all traffic inside the VPC.
+            VPC
+            |
+            Flow Logs
+            |
+            All Subnets
+        2. Subnet Level
+            Only one subnet.
+            VPC
+            |
+            Private Subnet
+            |
+            Flow Logs
+        3. ENI Level
+            Only one network interface.
+            EC2, ENI, Flow Logs
+
+    Where are Flow Logs stored?
+        AWS can send them to: CloudWatch Logs, S3
+
+    What Flow Logs DO NOT capture
+        This is an interview favorite.
+        Flow Logs do NOT capture:
+            SSH commands
+            HTTP request body
+            SQL queries
+            Packet contents
+        They only capture network metadata.
+
+    "My EC2 cannot connect to RDS. How would you troubleshoot?"
+        Check Route Table
+        Check Security Group
+        Check NACL
+        Check DNS
+        Check VPC Flow Logs to see whether traffic is ACCEPT or REJECT
+        Check application logs
+
+        This shows a structured troubleshooting approach.
+
+14) AWS PrivateLink
+    AWS PrivateLink provides private connectivity to specific AWS services or customer-hosted services without traversing the public internet.
+    
+    Does PrivateLink use the internet?
+        No. Traffic stays on the AWS private network.
+
+    What AWS component does PrivateLink create in your VPC?
+        An Interface Endpoint (an ENI with a private IP).
+
+    When would you choose PrivateLink instead of VPC Peering?
+        When you want to expose only a specific service instead of connecting entire VPCs, or when VPC CIDR ranges overlap.
+
+    When you create an Interface VPC Endpoint, AWS uses PrivateLink behind the scenes to create the connection.
+
+    It's not that PrivateLink creates the endpoint. Rather:
+        You create an Interface VPC Endpoint.
+        AWS implements it using PrivateLink.
+        AWS creates an Elastic Network Interface (ENI) with a private IP in your subnet.
+
+    You never interact with "PrivateLink" directly in the AWS Console. You simply choose:
+        Create VPC Endpoint
+        Select Interface
+        Select the service (Secrets Manager, ECR, SSM, etc.)
+        AWS takes care of the PrivateLink implementation.
+
+    

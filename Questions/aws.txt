@@ -1,0 +1,107 @@
+• An application hosted on EC2 is not accessible — how do you troubleshoot step by step?
+• How do you design a highly available architecture in AWS?
+• How do you secure an AWS environment for production workloads?
+• How do you handle sudden traffic spikes in AWS?
+• How do you design cost-optimized architecture in AWS?
+• EC2 instance is running but not reachable — what could be wrong?
+• S3 bucket access is denied — how do you debug it?
+• RDS database latency increased — how do you analyze the issue?
+• How do you design multi-AZ deployment for high availability?
+• How do you handle backup and disaster recovery in AWS?
+• How do you monitor complete infrastructure using CloudWatch?
+• How do you troubleshoot VPC connectivity issues?
+• How do you design CI/CD pipeline for AWS deployments?
+• How do you manage secrets securely in AWS?
+• How do you implement least privilege access using IAM?
+• How do you handle zero-downtime deployment in AWS?
+• How do you troubleshoot load balancer issues?
+• How do you handle auto scaling failures?
+• How do you debug a complete production outage in AWS?
+• What are best practices for running production workloads in AWS?
+These questions are very useful for DevOps Engineers preparing for AWS and Cloud-based interviews.
+
+
+1. What is the role of IAM roles and policies?
+2. Can you explain the Terraform plan and its purpose?
+3. What is AWS Lambda, and how does it work?
+4. How do you invoke a Lambda function, and where do you configure it?
+5. Can you describe how Lambda handles scaling and event-based invocations?
+
+6. What is Amazon CloudWatch, and have you configured any custom metrics?
+    Amazon CloudWatch is an AWS monitoring and observability service used to collect, monitor, visualize, and alert on 
+    infrastructure metrics, logs, and application events across AWS resources and applications.
+
+    Yes, we configured custom metrics using the CloudWatch Agent to monitor memory utilization, disk usage, and 
+    application-level metrics that are not available by default in CloudWatch.
+
+7. What metrics are available on your CloudWatch dashboard?
+    Our CloudWatch dashboard included infrastructure and application monitoring metrics such as CPU utilization,
+    memory utilization, disk usage, network traffic, status checks, application logs, and CloudWatch alarms for 
+    proactive monitoring.
+
+    “How did you get memory metrics in CloudWatch?”
+
+    We installed and configured the CloudWatch Agent because EC2 provides CPU and network metrics by default, 
+    but memory and disk metrics require additional agent-based monitoring.
+
+8. How do you configure CPU utilization on your CloudWatch dashboard?
+
+9. How do you attach an SSL certificate to an S3 bucket?
+   SSL certificates are not directly attached to S3 buckets. In AWS, HTTPS for S3-hosted content is typically 
+   implemented by placing CloudFront in front of the S3 bucket and attaching an ACM-managed SSL certificate to 
+   the CloudFront distribution.
+
+10. What type of encryption have you implemented in your project?
+    In projects, we commonly implemented encryption for data at rest and data in transit. 
+    For AWS services, we used KMS-managed encryption for S3 buckets, EBS volumes, RDS databases, and Secrets Manager. 
+    For secure communication, we used HTTPS/TLS encryption between applications and APIs.
+
+11. If an S3 bucket has a read-only policy, can you modify objects in the bucket?
+    No. A read-only S3 policy typically allows actions such as GetObject and ListBucket, 
+    but modifying objects requires write permissions like PutObject or DeleteObject.
+
+12. Why did you choose Terraform over Boto3 for infrastructure provisioning?
+    Terraform is preferred for infrastructure provisioning because it is declarative, supports Infrastructure as Code, maintains 
+    infrastructure state, enables idempotent deployments, and provides easier infrastructure lifecycle management. 
+    Boto3 is more suitable for operational automation and custom scripting rather than large-scale infrastructure provisioning.
+
+    Terraform	                Boto3
+    Infrastructure provisioning	Automation scripting
+    Declarative	                Imperative
+    Maintains state	            No state management
+    IaC tool	                SDK/library
+    Best for infra lifecycle	Best for operational tasks
+
+
+13. What is a Content Delivery Network (CDN), and how does it work?
+    “A CDN is a distributed network of edge servers that caches and delivers content from locations
+    closer to users, improving performance, reducing latency, and decreasing load on origin servers. 
+    In AWS, CloudFront is commonly used as the CDN service.”
+
+    “On the first request, the CDN edge location experiences a cache miss and fetches content from the origin server. 
+    Subsequent requests from nearby users are served from the edge cache, reducing latency and load on the origin infrastructure.”
+
+    Term	        Meaning
+    Edge Location	CDN server location
+    Origin Server	Main backend/source
+    Cache Hit	    Content served from CDN
+    Cache Miss	    CDN fetches from origin
+    TTL(Time To Live) Cache expiration time
+
+    Cache invalidation in CloudFront is the process of removing cached content from edge locations 
+    before TTL expiry so that users receive the latest content from the origin server.
+
+
+
+14. Have you created a Jenkins pipeline for your project?
+15. How do you attach policies to IAM users, either individually or by group?
+16. What type of deployment strategies are you using in your project?
+17. Have you used any tools to create customized Amazon Machine Images (AMIs)?
+18. What is connection draining, and how does it work?
+19. How does an Elastic Load Balancer (ELB) distribute traffic?
+20. What is auto-scaling, and how does it work?
+    Auto Scaling is an AWS feature that automatically increases or decreases the number of resources, such as EC2 instances, 
+    based on traffic, load, or monitoring metrics to maintain application availability and optimize cost.
+
+    “In production environments, Auto Scaling works with CloudWatch alarms and load balancers to dynamically scale EC2 instances 
+    based on traffic and utilization metrics, ensuring high availability and optimized infrastructure cost.”

@@ -1,0 +1,381 @@
+1) ELK stack
+    The elk stack is a powerful trio of open source tools designed for log management
+    and analysis, It consists of three main components Elastic Search, Log Stash, Kibana
+    
+    together they provide a solution for collecting and storing, searching and visualization of log data.
+
+2)Need of ELK
+    Imagine you're running an e-commerce application,Your Flask app is continuously writing logs like
+    2026-07-08 10:15:23 INFO User logged in
+    2026-07-08 10:15:24 INFO Product searched
+    2026-07-08 10:15:25 ERROR Payment failed
+    2026-07-08 10:15:27 INFO Retry successful
+    Now imagine there are 50 Pods,20 Microservices Millions of log lines every day.
+
+    You need one central place to store and search all logs. That is exactly why ELK exists.
+
+    What is ELK?
+        ELK is simply a log management system.
+        It has three jobs:
+            Collect logs,Store logs,Search and visualize logs
+        Applications -- Collect Logs -- Store Logs -- Search Logs
+
+
+    Elasticsearch?
+        It is simply a database that is optimized for searching.
+
+
+    Logstash?
+        Logstash reads logs and converts them into one common structure.
+        Now Elasticsearch can index and search them consistently.
+
+    Kibana?
+        Kibana is the user interface. Imagine Elasticsearch has one million logs.
+        Kibana gives you a web dashboard where you can:
+        Search logs, Filter logs, Create graphs, Build dashboards, Monitor applications
+        
+        Instead of reading text files, you get visual insights.
+    
+    Do we always need Logstash?
+        No,In reality, if your application already produces clean structured logs (for example, JSON), you can skip Logstash entirely
+        Logstash is added when you need parsing, filtering, transformations, or enrichment.
+
+3) Why did we use Fluent Bit instead of Filebeat?
+    Both Fluent Bit and Filebeat do almost the same job.
+    They are both log collectors (or log shippers).
+    They sit on every Kubernetes node, read container logs, and send them somewhere else.
+
+    Application
+        │
+    stdout
+        │
+    Fluent Bit
+        │
+    Logstash (optional)
+        │
+    Elasticsearch
+        │
+    Kibana
+
+    Fluent Bit was designed to be extremely lightweight.
+    Fluent Bit can attach Kubernetes metadata,This is called log enrichment.
+
+    Fluent Bit already reads logs, so why Logstash?
+        Fluent Bit says: "I collected the log."
+        Logstash says: "Let me extract useful fields."
+        It converts it into something structured like:
+            {
+            "event":"Payment Failed",
+            "userId":1001,
+            "amount":500,
+            "level":"ERROR"
+            }
+        Now Elasticsearch can index those fields separately, making searches like userId:1001 or amount>100 much easier.
+
+    Can Fluent Bit replace Logstash?
+        Yes, for many use cases.
+
+        Fluent Bit has filters that can:
+            Add Kubernetes metadata
+            Parse JSON
+            Rename fields
+            Drop unwanted logs
+            Modify records
+
+        Then why do companies still use Logstash?
+            Because Logstash is much more powerful.
+                Examples:
+                Parse complex Apache/Nginx logs
+                Extract fields using Grok patterns
+                Merge logs from multiple sources
+                Transform data extensively
+                Route logs to multiple destinations
+                Enrich logs using databases or external lookups
+
+4)Elasticsearch
+    Elasticsearch Architecture (Detailed Summary)
+    
+    Imagine your company has a microservices application running on Kubernetes.
+    Every second, thousands of logs are generated:
+        User login logs
+        Payment service logs
+        Nginx access logs
+        Kubernetes pod logs
+    These logs are collected by Fluent Bit and sent to Elasticsearch.
+    Now imagine after six months you have 500 GB or even several TB of logs. 
+    The challenge is how Elasticsearch stores all this data, searches it within milliseconds,
+    and still keeps it available even if servers fail. That's where the architecture comes in.
+
+
+    Cluster
+        A cluster is simply a group of Elasticsearch servers (called nodes) working together as one logical system.
+        Think of it like a Kubernetes cluster.
+            Kubernetes Cluster
+
+            Master
+            ├── Worker-1
+            ├── Worker-2
+            └── Worker-3
+
+            Similarly,
+
+            Elasticsearch Cluster
+
+            Node-1
+            Node-2
+            Node-3
+
+        Although there are three physical servers, users interact with them as if they were one Elasticsearch instance.
+
+        Example
+            Suppose your company stores 10 TB of application logs.
+            Instead of storing all 10 TB on one server, Elasticsearch distributes the data across multiple nodes in the cluster.
+
+            This provides:
+            Better performance
+            Higher storage capacity
+            High availability
+            Fault tolerance
+    
+    Node
+        A node is a single Elasticsearch server that is part of the cluster.
+        If your cluster has three virtual machines running Elasticsearch, then you have three nodes.
+
+        Example:
+        Cluster
+
+        ├── Node-1
+        ├── Node-2
+        └── Node-3
+
+        Each node contributes:
+        CPU
+        RAM
+        Storage
+        to the cluster.
+        Instead of one server doing all the work, multiple servers share the load.
+
+    Index
+        If you're familiar with SQL,
+            Database
+            ↓
+            Table
+
+            In Elasticsearch,
+
+            Cluster
+            ↓
+            Index
+
+        An index is where similar documents are stored.
+        Examples:
+            employee, orders, products, payments, flask-logs
+
+        In logging systems, every log generally belongs to an index.
+        For example: 
+        flask-logs: contains all Flask application logs.
+        payment-logs: contains payment service logs.
+
+    Document
+        A document is one JSON object.
+            Example:
+
+            {
+            "timestamp": "2026-07-08T10:30:20",
+            "service": "payment",
+            "level": "ERROR",
+            "message": "Database timeout"
+            }
+
+            This entire JSON object is one document.
+
+            If another request generates another log,
+
+            {
+            "timestamp":"2026-07-08T10:31:10",
+            "service":"payment",
+            "level":"INFO",
+            "message":"Payment successful"
+            }
+
+            that's another document.
+
+            So,
+
+            Index
+
+            ├── Document
+            ├── Document
+            ├── Document
+            └── Document
+
+            Exactly like rows inside a SQL table.
+    
+    Shards
+        Now imagine your flask-logs index has become 5 TB.
+        Can one machine search through 5 TB quickly?
+            Probably not. Instead of keeping one huge index, Elasticsearch splits the index 
+            into smaller pieces called shards.
+
+            Example: flask-logs
+                Shard-1, Shard-2, Shard-3
+                Think of a pizza.
+                Instead of one giant pizza,you cut it into slices.Each slice is easier to handle.
+
+                Similarly,each shard stores only part of the index.
+                Example:
+                Node-1 → Shard-1
+                Node-2 → Shard-2
+                Node-3 → Shard-3
+
+        Now when someone searches,all three nodes search simultaneously.
+        Instead of one server searching,three servers search together.
+        That's why Elasticsearch is fast.
+
+    Primary Shards
+        Every shard starts as a primary shard.
+        
+        Difference between Primary and Replica
+            Primary shard
+                Stores the original data
+                Receives all write requests
+                Only one active primary exists for each shard
+
+            Replica shard
+                Exact copy of the primary
+                Does not receive direct writes
+                Used for failover
+                Can participate in search operations
+        
+        Only after the document is successfully written to the primary shard,Elasticsearch copy it to the replica shards.
+        Both contain identical data.If Node-1 fails, Replica-1 is immediately promoted to become the new primary.
+        Your application continues working without data loss.
+
+    Inverted Index (Why Elasticsearch Searches So Fast)
+        This is the core reason Elasticsearch is much faster than scanning data line by line.
+        Suppose you have three documents.
+        A normal database might scan every document looking for the word "Kubernetes".
+
+        Elasticsearch instead creates something like this internally:
+        Kubernetes
+        ↓
+        Document-1
+        Document-2
+
+        Docker
+        ↓
+        Document-3
+
+        love
+        ↓
+        Document-1
+
+        This structure is called an Inverted Index.
+        Notice that the words are the keys, and the values are the document IDs.
+
+        Instead of reading every document,
+        Elasticsearch immediately knows which documents contain the searched word.
+        That's why searches across billions of logs often take only milliseconds.
+
+        So does Elasticsearch replace the documents with the inverted index? No.
+
+    Cluster Health
+        Cluster health tells you whether your data is fully protected.
+        Green, Everything is healthy.
+            Primary ✔, Replica ✔ No problems.
+        Yellow, Primary shards exist, but one or more replicas are missing.
+            A common example is a single-node Elasticsearch cluster.        
+            Primary ✔ Replica ✖
+            Elasticsearch will never place a replica on the same node as its primary because that wouldn't provide fault tolerance.
+        Red, A primary shard is missing.
+            This is serious because some data is no longer available.
+            Primary ✖ Replica ✖
+            The cluster still works, but if that node crashes, there's no backup copy.
+
+5) ELK process
+    Fluent Bit collects the log from the application.
+    It sends the JSON document to the Elasticsearch cluster.
+    Elasticsearch stores it in the flask-logs index.
+    Based on its routing algorithm (a hash of the document ID by default), Elasticsearch selects the appropriate primary shard.
+    The document is written to that primary shard.
+    Elasticsearch copies the document to all configured replica shards.
+    It updates the inverted index, mapping searchable terms (like "payment" or "Database") to the document.
+    When you search in Kibana for "Database timeout", Elasticsearch queries all relevant shards in parallel, combines the results, and returns them in milliseconds.
+
+6)Can I increase shards later?
+    Primary shards: ❌ No, you cannot simply increase the number of primary shards on an existing index.
+    Replica shards: ✅ Yes, you can increase or decrease replicas at any time.
+
+    Create a new index and reindex, Then copy all documents
+
+    Why can replicas be changed anytime?
+        Replicas are just copies of primary shards.No data needs to be redistributed because each replica contains the exact same data as the primary shard.
+
+    The number of primary shards cannot be directly increased after an index is 
+    created because documents are routed to primary shards using a hash-based routing algorithm. 
+    Changing the number of primary shards would require redistributing all existing documents. 
+    If more primary shards are needed, we typically create a new index with the desired shard count and use the Reindex API, or use the Split API when its prerequisites are met. 
+    Replica shards, however, can be increased or decreased at any time because they are simply copies of primary shards.
+
+7)Index Management
+    Imagine you're using ELK for Kubernetes logs.Your application generates around 10 million logs every day.
+    After one year: 365 days 3.65 billion logs
+    Now the question is:
+        Should Elasticsearch store all these logs in one index?
+        The answer is No, and that's the motivation behind Index Management.
+    
+    Index Naming
+        An index name is simply the logical name given to a collection of related documents.
+
+    Why don't we store everything in one index?
+        Although it uses an inverted index, it still has to search within a very large dataset and manage much larger index structures than necessary.
+        Deleting old logs also becomes difficult
+        Performance issues.
+
+    Create Daily Indices,Each day's logs go into that day's index.Retention becomes easy.
+    No document-by-document deletion.
+
+    Index Alias
+        An alias is a logical name that points to one or more indices.
+        If your application hardcodes index names, every day you'd need to change the configuration.Not practical.create an alias.
+        Alias
+        logs-current
+        ↓
+        logs-2026.07.09
+
+    Rollover
+        Rollover creates new indices based on size, age, or document count, making shard sizes more consistent.
+        When index reaches 50 GB or 30 days Create a new index automatically.
+
+    Hidden Indices
+        Some indices are not meant for users.Elasticsearch itself creates internal indices.
+        .kibana .security .tasks
+
+        They store:
+            Kibana dashboards
+            Saved searches
+            Security users
+            Roles
+            Internal metadata
+            Normally, you don't modify these directly.
+
+8)ILM (Index Lifecycle Management)
+    Automatically manage an index throughout its lifetime, from creation until deletion.
+
+    Without ILM, someone would have to manually create new indices, move old data, and delete expired logs. With ILM, Elasticsearch does all of this automatically.
+    Obviously, we don't want to keep all logs forever on expensive storage.
+    This is exactly what ILM solves.
+
+    An Elasticsearch index also has stages.
+        Created
+        ↓
+        Frequently Used
+        ↓
+        Rarely Used
+        ↓
+        Almost Never Used
+        ↓
+        Deleted
+    Each stage is called a phase.
+        
+    

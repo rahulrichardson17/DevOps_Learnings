@@ -1,0 +1,446 @@
+1)What is Prometheus?
+    Prometheus is an open-source monitoring and alerting system. 
+    It collects metrics from applications, servers, containers, and Kubernetes by periodically scraping their 
+    /metrics endpoints over HTTP. It stores these metrics as time-series data, supports querying with PromQL, 
+    and integrates with Alertmanager for notifications.
+
+2)What is Grafana?
+    Grafana is a visualization platform. It connects to data sources like Prometheus, 
+    Elasticsearch, Loki, and InfluxDB to create dashboards and graphs. Grafana itself does not store metrics.
+
+3)Explain the Prometheus architecture.
+    Application
+      │
+      │ /metrics
+      ▼
+    Prometheus
+        │
+        ├── Time-series database
+        ├── PromQL
+        └── Alert Rules
+                │
+                ▼
+            Alertmanager
+                │
+        Slack / Email / PagerDuty
+
+    Grafana
+        │
+    Reads from Prometheus
+
+4)How does Prometheus collect metrics?
+    Prometheus uses a pull model.
+    Every few seconds (for example, every 15 seconds), it sends an HTTP request to the target's /metrics endpoint, 
+    receives the metrics, and stores them.
+
+5)What is Node Exporter?
+    Node Exporter is an exporter that collects operating system metrics such as:
+    CPU,Memory,Disk,Network,File system
+    It exposes them on /metrics, which Prometheus scrapes.
+
+6)What are Exporters?
+    Exporters expose metrics in a Prometheus-compatible format.
+    Examples: Node Exporter, kube-state-metrics,cAdvisor,Blackbox Exporter,MySQL Exporter,PostgreSQL Exporter
+
+7)Push vs Pull in Prometheus
+    Prometheus uses the pull model, to pull the metrics from the different, endpoint /metrics, this is the 
+    default behaviour of the Prometheus. 
+
+    Push is like Instead of Prometheus asking, applications sending the metrics to the Prometheus, and this
+    method is called the Pushgateway.
+    Apps doesnot directly push to the Prometheus, they push to the Pushgateway and Prometheus, pulls it form the 
+    Pushgateway.(This is mostly used for short-lived jobs.)
+
+    Does Prometheus supports push?
+        Yes, but indirectly using Pushgateway. Prometheus itself still follows the pull model by scraping metrics from the Pushgateway.
+
+7)What is kube-state-metrics?
+    kube-state-metrics watches the Kubernetes API for object state, converts that information into Prometheus metrics, 
+    exposes them on a /metrics endpoint, and Prometheus periodically scrapes that endpoint.
+
+    kube-state-metrics is NOT pre-installed in a Kubernetes cluster. You need to install it separately.
+    kube-state-metrics is an optional add-on, maintained by the Kubernetes community, specifically to expose Kubernetes object state as Prometheus metrics.
+    
+    Installation:
+        If you install the Prometheus Community Kubernetes Stack (formerly kube-prometheus-stack) using Helm:
+        It automatically installs:
+        Prometheus, Alertmanager, Grafana, kube-state-metrics, Node Exporter
+
+        How can you verify it's installed?
+                kubectl get pods -n kube-system
+            or, if using the Prometheus stack:
+                kubectl get pods -n monitoring
+        So in most production clusters, you don't install kube-state-metrics manually—it comes as part of the monitoring stack.
+
+8)Difference between Node Exporter and cAdvisor?
+    Node exporter Monitors the host machine(CPU, RAM, Disk)	and cAdvisor Monitors containers(Container CPU, Memory, Network)
+
+9)What is a metric?
+    A metric is simply a numerical measurement of data collected over time.
+    node_cpu_seconds_total
+    http_requests_total
+    memory_usage_bytes
+    disk_read_bytes_total
+
+10)What is PromQL?
+    PromQL (Prometheus Query Language) is the query language used to retrieve, filter, 
+    aggregate, and perform calculations on metrics stored in Prometheus.
+
+    you use PromQL to ask questions like:
+    What is the CPU usage?
+    Which pod has restarted the most?
+    What is the average memory usage?
+    How many HTTP requests occurred in the last 5 minutes?
+
+    Grafana sends PromQL queries to Prometheus, and Prometheus returns the results to Grafana for visualization.
+
+11)What is the up metric?
+    From Prometheus side in order to pull the metrics, if the target is available it says these
+    1 → Target is reachable
+    0 → Target is down
+
+12)How do you monitor Kubernetes using Prometheus?
+    Install Prometheus (often with Helm).
+    Install exporters like Node Exporter, kube-state-metrics, and cAdvisor.
+
+    Prometheus discovers Kubernetes targets using service discovery.
+    Prometheus scrapes metrics.
+    Grafana displays dashboards.
+    Alertmanager sends alerts.
+
+13)What is Service Discovery?
+    Instead of manually adding every target:
+    server1,server2,server3
+
+    Prometheus automatically discovers pods, services, and nodes from Kubernetes.
+    This is called service discovery.
+
+    How does Prometheus know about newly created Pods?
+        In Kubernetes, Prometheus uses Service Discovery.
+        Instead of manually adding targets, Prometheus queries the Kubernetes API.
+        Whenever a new Pod starts, a Deployment scales, a Service changes
+        Prometheus automatically updates its target list.
+
+14)How do you monitor custom applications?
+    Developers add a Prometheus client library.(prometheus_client)
+    The application exposes: /metrics, Prometheus scrapes it.
+
+15)What happens if Prometheus goes down?
+    Metrics cannot be collected while it's down.
+    Existing stored metrics remain available.
+    After it comes back up, it resumes scraping.
+    For production, use high availability and long-term storage solutions if needed.
+
+16)What is Alertmanager?
+    Alertmanager receives alerts from Prometheus and can:
+        Group alerts,Suppress duplicates,Route alerts
+        Send notifications to Slack, Email, Microsoft Teams, or PagerDuty
+
+    If asked "Is Alertmanager part of Prometheus or Grafana?"
+        Alertmanager is part of the Prometheus ecosystem. Prometheus evaluates alert rules and sends fired alerts to Alertmanager, 
+        which handles grouping, deduplication, silencing, routing, and notifications to channels like Slack, Email, or PagerDuty. 
+        
+        Grafana also provides its own alerting feature, but Alertmanager is the traditional and most commonly used alerting component
+        in Prometheus-based monitoring stacks.
+
+        Which one is preferred?
+            For most Kubernetes and DevOps environments, Prometheus + Alertmanager remains the standard approach because 
+            it's tightly integrated with Prometheus and widely adopted.
+
+17)Scrape Configurations
+    How do you configure Prometheus to monitor a new application?
+        we should know scrape_configs
+        Things like: job_name, targets, scrape_interval, metrics_path, labels
+
+18) Labels
+    one of the biggest prometheus strength,Without labels, Prometheus wouldn't be nearly as useful.
+
+    Labels are one of the most important concepts in Prometheus. 
+    Without understanding labels, writing PromQL queries or creating Grafana dashboards becomes difficult.
+
+    A label is a key-value pair attached to a metric that provides additional information about that metric.
+    labels or like tags
+
+    http_requests_total{
+        job="frontend",
+        instance="10.0.0.1:8080",
+        method="GET",
+        status="200"
+    } 1250
+    Everything inside {} are labels.
+
+    Why do we need labels?
+        Imagine you have 100 applications.
+        Without labels, you'd need separate metrics like:
+            frontend_http_requests_total
+            backend_http_requests_total
+            payment_http_requests_total
+
+        This doesn't scale well.
+        Instead, Prometheus uses one metric with different labels:
+            http_requests_total{job="frontend"}
+            http_requests_total{job="backend"}
+            http_requests_total{job="payment"}
+        Same metric name, different labels.
+
+    Real Kubernetes Example
+        Suppose you have three pods:
+            frontend-abc,frontend-def,backend-xyz
+
+        Prometheus might store:
+            container_memory_usage_bytes{
+                namespace="default",
+                pod="frontend-abc",
+                container="nginx"
+            }
+
+            container_memory_usage_bytes{
+                namespace="default",
+                pod="frontend-def",
+                container="nginx"
+            }
+
+            container_memory_usage_bytes{
+                namespace="default",
+                pod="backend-xyz",
+                container="java"
+            }
+        Notice that the metric name is the same. The labels tell us which pod and container the metric belongs to.
+
+        Labels make filtering possible easy
+            Suppose you need only, http related requests
+            http_requests_total{
+                status="500"
+            }
+
+        Labels enable grouping
+            Suppose every pod exposes CPU usage.
+                Without grouping: container_cpu_usage_seconds_total
+
+                You might get:
+                    frontend-1 = 0.20
+                    frontend-2 = 0.25
+                    backend-1 = 0.50
+                    backend-2 = 0.45
+
+            If you want total CPU per namespace:
+                sum by(namespace)(
+                    container_cpu_usage_seconds_total
+                )
+                Result: default = 1.40
+
+                sum by(job)(
+                    http_requests_total{job="frontend"}
+                )
+
+        Labels are used everywhere PromQL,Alerting,dashboards
+        Where do labels come from? Different exporters add different labels.
+
+        Remember this simple rule:
+            sum() → One total across all matching metrics.
+            sum by(label) → One total per unique value of that label.
+            {job="frontend"} → Filters metrics before the aggregation.
+        
+
+19)ServiceMonitor & PodMonitor
+    ServiceMonitor and PodMonitor are Kubernetes custom resources used by the Prometheus Operator 
+    to tell Prometheus what to scrape. They eliminate the need to manually edit prometheus.yml
+
+    Before ServiceMonitor & PodMonitor
+        In a standalone Prometheus setup, you manually configure scrape targets:
+        scrape_configs:
+        - job_name: "my-app"
+            static_configs:
+            - targets:
+                - 10.10.10.5:8080
+
+    This works fine for VMs, but in Kubernetes:
+        Pods are created and destroyed frequently.
+        Pod IPs change.
+        Scaling changes the number of pods.
+    Manually updating prometheus.yml isn't practical.
+
+    Prometheus Operator Solution: Instead of editing prometheus.yml, you create Kubernetes resources like:
+    ServiceMonitor, PodMonitor
+    The Prometheus Operator watches these resources and automatically updates Prometheus.
+
+    What is a ServiceMonitor?
+        A ServiceMonitor tells Prometheus,Scrape all Pods that are exposed through this Kubernetes Service.
+        Pods, Service, ServiceMonitor, Prometheus
+
+        Create a ServiceMonitor:
+            apiVersion: monitoring.coreos.com/v1
+            kind: ServiceMonitor
+
+            spec:
+            selector:
+                matchLabels:
+                app: frontend
+
+            endpoints:
+                - port: metrics
+
+    What is a PodMonitor?
+        A PodMonitor skips the Service completely.
+        It tells Prometheus: Scrape Pods directly
+        Pods,PodMonitor,Prometheus
+
+        apiVersion: monitoring.coreos.com/v1
+        kind: PodMonitor
+
+        spec:
+        selector:
+            matchLabels:
+            app: frontend
+
+        podMetricsEndpoints:
+            - port: metrics
+    
+    Which one is preferred?
+        ServiceMonitor, Because applications are normally exposed through a Kubernetes Service.
+
+    When do we use PodMonitor?
+        PodMonitor is useful when, No Service exists and want to scrape the pods individually.
+    
+20)Prometheus Operator
+    kubectl apply -f servicemonitor.yaml
+    
+    What is an Operator?
+        In Kubernetes, an Operator is software that extends Kubernetes by watching custom resources (CRDs) 
+        and automatically performing operational tasks.
+
+        The Operator notices,A new ServiceMonitor was created.It automatically updates Prometheus.
+
+        What does the Prometheus Operator manage?
+            PrometheusRule,PodMonitor,ServiceMonitor
+
+        Developer
+
+        kubectl apply -f servicemonitor.yaml
+                │
+                ▼
+        ServiceMonitor CRD
+                │
+                ▼
+        Prometheus Operator
+                │
+                ▼
+        Updates Prometheus configuration
+                │
+                ▼
+        Prometheus starts scraping automatically
+    
+    Where does Helm come in?
+        Most companies don't install the Operator by writing manifests manually.
+        Instead they use the Prometheus Community Helm chart (often called kube-prometheus-stack).
+        One command: helm install monitoring prometheus-community/kube-prometheus-stack
+
+        This installs:
+        Prometheus Operator
+        Prometheus
+        Alertmanager
+        Grafana
+        kube-state-metrics
+        Node Exporter
+        CRDs((Custom Resource Definition) like ServiceMonitor, PodMonitor, and PrometheusRule
+
+    So when people say: We installed Prometheus,They often actually mean:
+    We installed the kube-prometheus-stack, which includes the Prometheus Operator.
+
+    Have you used the Prometheus Operator?
+        Yes. We deployed the kube-prometheus-stack using Helm. 
+        The Prometheus Operator managed Prometheus and Alertmanager, and we used ServiceMonitor resources 
+        to automatically discover and scrape application metrics instead of manually maintaining scrape_configs in prometheus.yml
+
+    CRD = “What I want” (ServiceMonitor, PodMonitor, PrometheusRule)
+    Operator = “Do it for me”
+
+    CRD alone does nothing,Operator alone is useless without CRDs.They always work together.
+
+21)Reconciliation Loop in Kubernetes Operator
+    A reconciliation loop is the continuous process where a Kubernetes Operator checks 
+    the current state of the cluster and makes it match the desired state defined by the user.
+
+    Observe → Compare → Fix → Repeat
+
+22)Recording Rules in Prometheus
+    Recording rules precompute PromQL queries and store the result as a new metric.
+    Why do we need them? So instead of computing again and again precompute once, store result.
+
+    Reconciliation Loop → Keeps system in desired state (Operator)
+    Recording Rule → Keeps metrics precomputed (Prometheus)
+
+
+23)Recording Rules vs Alerting Rules
+    Precompute and store query results | Detect problems and generate alerts
+    Creates a new metric | Creates an alert
+
+24)Retention
+    In Prometheus, Retention refers to how long Prometheus keeps collected metrics before deleting them.
+        Why do we need retention?
+            Prometheus continuously collects metrics.
+            Suppose:
+                500 Pods
+                100 Nodes
+                20,000 metrics
+                Scrape every 15 seconds
+            Every scrape generates more data.Eventually the disk fills up.
+
+        If you're using kube-prometheus-stack, you don't usually pass command-line flags directly.
+        Instead, you configure the Prometheus custom resource.
+
+        prometheus:
+            prometheusSpec:
+                retention: 15d
+
+        What is the default retention in Prometheus?
+            By default, Prometheus retains data for 15 days, assuming storage constraints don't remove it earlier.
+
+25)how you design a highly available monitoring system.
+    High Availability (HA) means designing the monitoring system so that it continues to work even if one Prometheus instance fails.
+    
+    The simplest HA setup is to run two identical Prometheus servers.
+
+    Both Prometheus instances:
+        Scrape the same targets.
+        Store their own copy of the metrics.
+        Evaluate the same alert rules.
+
+    If one fails,other still Monitors
+    
+    Why scrape the same targets?
+        Because Prometheus doesn't replicate data between instances.
+        Each Prometheus keeps its own TSDB. So both must collect the same metrics independently.
+    
+        What about duplicate alerts?
+            If both Prometheus instances evaluate the same alert,Won't you get two Slack messages?
+                No.Alertmanager deduplicates alerts.
+                So even if both Prometheus servers send the same alert, 
+                Alertmanager recognizes they're identical and sends only one notification.
+
+    What is a Single Point of Failure (SPOF)?
+        A Single Point of Failure is any component whose failure brings down the entire system.
+
+
+26)What are Grafana Variables?
+    Grafana Variables are dynamic placeholders that allow dashboards to be interactive.
+    You build one dashboard.The entire dashboard updates automatically.
+
+    Where do variable values come from?
+    Grafana queries Prometheus to populate the dropdown.
+    Grafana uses these values in the dropdown.
+
+    Chained Variables:
+        Variables can depend on each other.
+        First select Namespace,Then Pod dropdown automatically changes.
+        This is called a chained (or dependent) variable.
+
+    To make dashboards reusable and interactive, allowing users to filter data without creating multiple dashboards.
+    Grafana Variables are dynamic placeholders that make dashboards interactive and reusable. Instead of hardcoding values like a namespace, pod, or node, variables allow users to select them from dropdown menus.
+
+27)How do you secure Prometheus?
+    There are four major areas interviewers expect you to know:
+    RBAC,TLS,Authentication & Authorization,NetworkPolicies
+
+    To secure Prometheus in Kubernetes, I would use RBAC to grant only the minimum read permissions required for service discovery.
+    

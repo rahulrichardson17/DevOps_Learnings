@@ -1,0 +1,907 @@
+📍Basic Level [ Terraform ]
+
+1) What is Terraform, and why would you use it over other infrastructure-as-code tools like CloudFormation or Ansible?
+   
+   Terraform is an infrastructure as a code tool, developed by HashiCorp and the language we use is HCL.
+   Terraform allows you to define, provision and manage, infra as a code using declarative configuration files.
+   Instead of manually creating the resources in different cloud platforms. Using terraform we can provision in any cloud.It has that feasability.
+
+   How it works??
+   --------------------
+   It compares the current desired state with the actual state of the infra and makes the required changes.
+
+   why Terraform?
+   --------------------
+   Infrastructure is version controled
+   Supports multi-cloud
+   Reduce manual setup
+   Enables automation, through CI/CD pipelines.
+
+   Terraform vs Ansible
+   -----------------------
+   Infra provisioning, Infra configuration
+   Created resources, Configure resources
+   Declarative, Mostly procedural
+   uses state file, Agentless less execution
+   creates ec2 vpc, Install packages & update configs.
+
+   Terraform vs CloudFormation & AWS CDK
+   -------------------------------
+   Multi-cloud, AWS only
+   uses hcl, json/yaml language
+
+
+2) What are the key components of Terraform?
+   providers,
+   resources,
+   variables,
+   outputs,
+   state file,
+   modules,
+   backend,
+   data sources
+
+
+3) What is a Terraform provider? Can you give an example of how one works?
+   
+   A Terraform provider is a plugin, that allows terraform to communicate with a Specific
+   platform, service or API, by making API calls to Cloud service.
+
+   Without the provider, terraform doesnt know how to create or manage resources on a platform.
+   Terraform code ----> provider -----> Aws/Azure/Gcp/k8/Github
+
+   ex:
+        provider "aws" {
+            region = "ap-south-1"
+        }
+
+    This tell's terraform , use the aws provider and create the resources.
+
+    terraform init
+    ------------------
+    When you run the terraform init command
+    terraform reads the provider block, download the aws provider plugin and stores it locally.
+
+    Providers were typically download from the terrafrom registery, during the terraform init
+    and cached it locally in the .terraform directory
+
+
+    terraform apply
+    ---------------------
+    When we write the apply command it calls the aws provider
+    and aws provider calls the AWS API's and it creates the resources, which were defined
+    and it updates the state file.
+
+    apply ----> aws provider ----->  aws s3 API ----> s3 Bucket Created
+
+    Multiple Providers:
+    ---------------------
+
+    provider "aws" {
+        region = "ap-south-2"
+    }
+
+    provider "github" {
+        token = var.github_token
+    }
+
+    You can also create an s3 bucket in AWS and a repo in the github also 
+    from same terraform configuration.
+
+
+4) What is the difference between terraform apply and terraform plan?
+
+    Terraform plan
+    ---------------
+    It shows what changes terraform will make and no infra is modified here.
+    safe to run anytime, used for review and validation. It generates and execution plan.
+
+    How it works??
+    ---------------
+    It compares the desired state and the current state and display the difference.
+    desired state = current terrafrom code, new changes
+    actual state = infra which is already provisioned.
+
+    it will be a review, but nothing will be created.
+
+
+    Terraform apply
+    -----------------
+    Here terraform perform the actions, means real provisioning happens here
+    based on the plan.
+
+    Best practice for CI/CD
+    ------------------------
+    Instead of terraform plan
+    use: terraform plan -out=tfplan
+
+    terraform apply tfplan
+
+    Because the exact plan that was reviewed is the one that gets executed.
+
+    terraform plan  = Show me what will happen
+    terraform apply = Make it happen
+
+    Terraform plan will not store the plan anywhere, it just displays on the screen,
+    if we want to preserve that plan for reference and wanted to use the same, 
+    we can use terraform plan -out=tfplan
+    and that tfplan will be stored in the current directoty.
+
+    When we run the Terraform apply, it will generate the new plan internally again and then asks for
+    the approval.
+
+    After we do the terraform apply, terraform updates the state file,
+    terraform.tfstate
+
+    Difference Between Plan File and State File
+    --------------------------------------------
+    temporary execution plan, current infra structure
+
+
+    When is terraform.tfstate Created?
+    ----------------------------------
+    On terraform apply, a state file is created,it creates resources, gets resource ID from AWS, 
+    write's them to the terraform.tfstate file.
+
+
+    If all the resources were deleted, then state file will not be deleted, but the resources
+    inside it will be deleted and can be reused again. Unitil undless the file is deleted manually.
+
+    Why Doesn't Terraform Delete the State File?
+    Because Terraform treats the state file as: "The current state of the infrastructure."
+
+    When Terraform runs terraform apply on your laptop, 
+    the state file is stored locally unless you use a remote backend.
+
+
+5) What are modules in Terraform? How do you organize your infrastructure with them?
+    A module is a re-usable collection of terrafrom resources. you create a module once and reuse it.
+
+    All teams use the same approved infrastructure pattern.
+    Reduced Code Duplication
+
+    Module components
+    -----------------
+    variables.tf (Inputs)
+    main.tf  (Resources)
+    outputs.tf (Outputs)
+
+    How we call a module???
+    -------------------------
+    source = ../../modules/vpc
+
+    Types of modules
+    --------------------
+    Local Module - the code exists in the same repo
+    source = "../../modules/vpc"
+
+    Git Module - Common in enterprise, exists in company git repo
+    source = "git::https://github.com/company/vpc-module.git"
+
+    Registry Module - Code exists in the public registery
+    source = "terraform-aws-modules/vpc/aws"
+
+
+6) What is a state file in Terraform, and why is it important?
+    When terraform creates the resources it stores them in the file, called state file.
+    and it will be like terraform.tfstate and this state file is created when you run apply command.
+
+    It was important , because it helps to track the infra resources.
+    and prevent resource re-creation. 
+
+    It stores the resourceID, metadata, attributes,dependencies
+
+    Local state and Remote state:
+    -----------------------------
+    Local was stored in the local machine and it will be withyou only.
+    Remote state will be stored in the s3 bucket, when group of team working on the 
+    same infra, then it will be difficult to identifiy, so we use remote state.
+    (S3+Dynamo DB locking)
+
+    The Terraform state file is a file that stores information about the infrastructure managed by Terraform. 
+    It acts as Terraform's source of truth by maintaining a mapping between resources defined in code and the actual infrastructure resources. Terraform uses the state file to determine what changes are required during plan and apply operations, track resource IDs and metadata, and manage dependencies. In enterprise environments, the state file is typically stored remotely 
+    in an S3 backend with DynamoDB used for state locking to enable collaboration and prevent concurrent updates.
+
+
+7)  What are the different types of Terraform providers?
+    1. By Provider Category
+
+        Cloud Providers
+        SaaS Providers
+        Container & Orchestration Providers
+        Monitoring & Logging Providers
+        Networking Providers
+
+    2. Official Terraform Classification
+        Official Providers
+        Partner Providers
+        Community Providers
+
+    Terraform providers are plugins that allow Terraform to interact with external platforms. 
+    Common provider categories include cloud providers such as AWS, Azure, and GCP; container providers such as Kubernetes and Helm; 
+    SaaS providers such as GitHub and Datadog; and networking providers for load balancers and firewalls. 
+    Terraform also classifies providers as official, partner, or community providers depending on who maintains them. 
+    In my projects, I primarily work with the AWS provider and occasionally with Kubernetes and GitHub providers.
+
+    Can a single Terraform project use multiple providers?
+    -------------------------------------------
+    Yes. Terraform supports multiple providers within the same configuration. For example, we can use the AWS provider 
+    to create infrastructure and the GitHub provider to create repositories or manage GitHub resources in the same deployment workflow.
+
+
+8) How does Terraform handle dependencies between resources?
+
+    Terraform automatically builds the dependency graph internally and
+    determines the order of the resources execution how they should be created updated and destroyed.
+
+    We have two dependencies, Implicit and Explicit
+
+    Implicit:
+    ------------
+    Based on the reference variables, terraform easy detects the dependency
+    and it creates a dependency graph. No extra configuration needed.
+
+    Explicit:
+    -----------
+    Sometimes resources do not directly reference each other. In that case be use
+    a key word called depends_on, in that case terraform understands there is a dependency.
+
+    We use depends_on, only when terraform cannot understands it, means whne there is no
+    direct attribute reference. 
+
+    ex: ec2 needs an iam role
+
+    Dependency graph is formed when we did terraform plan
+    terraform internally builds graph, and executes the resources in that order.
+    
+    Independent resources were created parallel without any dependencies
+
+
+    During terraform destroy
+    terraform executes the order in reverse, for the resources which were having
+    the dependency. this prevents errors.
+
+    dependencay graph is not stored anywhere, it was rebuild every time , when we run the terrafrom plan or apply
+
+    dependencay graph is stored inmemory only, not anywhere else.
+
+    terraform graph - using this command we can see the graph
+
+    Even if the state file is empty, terraform graph can still generate a dependency graph??
+    -----------------------
+        Yes even if the state file is empty, terraform can still generate the dependancy graph
+        it generates not only on the state but it also checks the 
+        main.tf, variables.tf,outputs.tf,terrafrom.tfstate
+
+    If needed we can store the graph to, using .dot extension
+
+
+9) Can you explain the lifecycle of a Terraform resource?
+
+    Write Code
+       ↓
+    Plan
+        ↓
+    Create
+        ↓
+    Update
+        ↓
+    Destroy
+
+    The lifecycle of a Terraform resource consists of creation, modification, and destruction. A resource is first defined in Terraform code, 
+    then analyzed during the plan phase where Terraform determines the required actions. During apply, Terraform creates or updates 
+    the resource and records it in the state file. If the configuration changes, Terraform updates or replaces the resource as needed. 
+    If the resource is removed from the configuration or a destroy operation is executed, 
+    Terraform deletes the resource and updates the state accordingly. 
+    
+    Terraform also provides lifecycle meta-arguments such as 
+    create_before_destroy, 
+    prevent_destroy, and 
+    ignore_changes to control resource behavior.
+
+    terraform provides the lifecycle block, 
+    create_before_destroy - to reduce the downtime we basically use this, 
+    it creates the new resource first and then destroys the old one.
+
+    prevent_destroy - to protect the crictical and main resources, to prevent accidental 
+    deleteion we use it.
+
+    ignore_changes - To ignore the changes, basically used for tags, not much effected to a resource.
+
+
+    prevent_destroy = true only prevents Terraform from deleting a resource. If someone manually deletes the resource through 
+    the AWS Console or CLI, Terraform cannot stop it. On the next terraform plan, Terraform will detect that the resource is 
+    missing and will typically plan to recreate it because the resource still exists in the Terraform configuration.
+    This situation is known as infrastructure drift.
+
+
+10) What is a Terraform variable, and how is it used in a configuration?
+    A variable is used to make Terraform configurations dynamic and reusable.
+    Instead of hradcoding we use variables, 
+
+    variable was declared in the variables.tf
+
+    to use static varibales we can use deafult, 
+    if we want to load it dynamically we use terrafrom.tfvars , terrafrom automatically loads it.
+    we also use command line to laod varibales
+    environment variables, we use export and load it, terrform then reads it automatically
+
+    Varibale types:
+    ----------------
+    String, number, boolean, list, map
+
+    How do you pass variables in GitHub Actions?????????????????????
+
+
+Intermediate Questions
+------------------------------
+10) How would you manage secrets or sensitive data in Terraform?
+    Secrets should never be hardcoded in Terraform code or committed to Git. 
+    Instead, they should be stored in secure secret-management solutions such as 
+    AWS Secrets Manager, AWS SSM Parameter Store, HashiCorp Vault, or CI/CD secret stores, and injected into Terraform at runtime.
+
+    Method1: Store it in github actions secrets
+    Method2: Aws secrets, terraform can read it. It uses jsondecode
+
+    For sensitive varibales, we can make sensitive=true, so terraform hides it in the logs 
+
+    ************
+    But secrets can still be stored in the state file and it will be in the s3 bucket, 
+    we use s3 bucket with the KMS encryption and strict IAM access, controls, to protect the state,
+    This ensures secure secret management while maintaining automation and auditability.
+
+
+11) How do you handle versioning of Terraform modules?
+
+    I handle Terraform module versioning by pinning modules to specific versions instead of consuming the latest code.
+    For internally developed modules, we use Git tags following semantic versioning, such as v1.0.0, v1.1.0, and v2.0.0, 
+    and reference the required version using the ref parameter.
+
+    For Terraform Registry modules, we specify the version attribute. This approach ensures stability, 
+    reproducibility, and controlled upgrades across environments.
+
+    We also version providers using required_providers and rely on .terraform.lock.hcl to maintain 
+    consistent provider versions across developer machines and CI/CD pipelines.
+
+    module "vpc" {
+        source = "git::https://github.com/company/terraform-vpc.git?ref=v1.0.0"
+    }
+
+
+12) What is the purpose of the terraform init command?
+
+    terraform init initializes a Terraform working directory. 
+    It downloads the required providers, configures the backend, 
+    and downloads any referenced modules before Terraform can execute plan or apply operations.
+
+    Does terraform init create main.tf ??
+    ----------
+    No. Terraform configuration files such as main.tf, variables.tf, and terraform.tfvars are written by the user. 
+    terraform init only initializes the working directory by downloading providers, modules, 
+    and configuring the backend. It typically creates the .terraform directory and .terraform.lock.hcl file.
+
+    If the directory is completely empty, Terraform can initialize successfully, 
+    but there is nothing to download or lock, so those files/directories generally won't appear.
+    .terraform directory and .terraform.lock.hcl file.
+
+
+13) How do you manage and work with Terraform remote backends (like S3, Consul)?
+
+        Where Terraform stores its state file and how it is accessed is called remote backend.
+        By default: local backend → terraform.tfstate on your machine
+        remote backend → shared storage (S3, Consul, etc.)
+
+        Why Do We Use Remote Backends?
+        State Safety, Centralized storage, Backup, to avoid overwrites by developers.
+        State locking,
+
+        Dynamo DB- It provides state locking.
+
+        How Do We Initialize Backend?
+            using terraform init, moves local state to remote.
+
+        Terraform remote backends are used to store state files centrally instead of locally. 
+        In production, we typically use S3 as a backend along with DynamoDB for state locking 
+        and KMS for encryption.
+
+        Terraform state locking deep dive (what happens during failure)?????????????????????
+
+
+15) What is the difference between terraform destroy and terraform apply -destroy?
+    terraform destroy - 
+    It is a dedicated command to delete all resources managed by Terraform.
+    
+    terraform destroy
+        1. Refresh state
+        2. Build destroy plan
+        3. Show you what will be deleted
+        4. Ask for confirmation
+        5. Destroy resources    
+
+    terraform plan -destroy -out=destroy.tfplan
+
+        it stores the resources which were getting destroyed in a file
+        later we can use terraform apply destroy.tfplan
+        now actual destroy will happen, and it was useful for audit purpose and it updates the state file too.
+
+
+16) Terraform Flags.
+
+    terraform plan -out=tfplan
+        Saves the plan to a file, later we can use like terraform apply tfplan
+
+    terraform apply -auto-approve tfplan
+        It approves automatically and does ask for any human inputs, while running.
+
+    terraform plan -input=false or terraform apply -input=false
+        Prevents Terraform from asking a value.
+
+    -var 
+        Used to pass the variable directly
+        terraform plan -var="environment-dev"
+
+    -var-file
+        Environment-specific deployments.
+        terraform plan -var-file=dev.tfvars
+
+        terraform apply -var-file=prod.tfvars
+
+    -target
+        Terraform touches only that resource.
+        terraform apply -target=aws_s3_bucket.logs
+        Generally avoided in production because it can bypass dependency management.
+
+    -destroy
+        terraform plan -destroy
+        It shows what would be removed.
+
+    terraform plan / terraform plan -refresh=true
+        It compares: Code + State + Real AWS
+        Then it decides: “To make AWS match the code, I must recreate the EC2.”
+        Yes — it WILL show EC2 in the plan again so that it can be recreated on apply.
+        This is called reconciliation plan.
+
+    terraform plan -refresh-only
+        It compares ONLY: State ↔ Real AWS  NOT code.
+        It will NOT generate a create plan, it gives Only drift report
+
+    
+    terraform apply -refresh-only
+
+        terraform apply -refresh-only compares the Terraform state file with real infrastructure and 
+        then updates the state file to match reality. 
+        It does NOT create, update, or delete any real resources.
+
+
+    -lock=false
+        terraform plan -lock=false
+        It disables the state locking, so terraform will be unable to track the infra.
+
+        when we run the terraform plan, terraform normally acquires the state lock,
+        to avoid the corruption or intervention. this is called state locking.
+
+        but when we run the -lock=false, terraform skips that.
+        basically it disables the locking.
+
+    -parallelism
+        terraform apply -parallelism=20
+        Controls how many resources, terraform creates simultanesouly
+        default is Usually sufficent.
+
+        Terraform default is 10, it can create 10 resources at the same time, 
+        in general if there is no dependency between resources, then terraform will create parallely only.
+
+
+    .terraform.lock.hcl
+        It was created when we run the terrafrom init, this file has nothing to do with the
+        state locking, Its purpose is provider version locking. 
+
+        when we did terraform init, it downloads the aws provider version, and saves it to the
+        .terrafrom.lock.hcl , next time when we did, terraform init it uses this version insated of downloading again.
+
+        it was called terraform dependancy lock file.
+
+
+    -check
+        terraform fmt -check
+        checks whether if your terraform code follows the terraform standard formatting.
+        
+        terraform fmt
+        if we use this, if any format is wrong it corrects that and returns the corrected file.
+        -check is used in the pipeline, to check and fail, based on exit code it will fail.
+
+        terraform fmt automatically formats Terraform files. terraform fmt -check 
+        only verifies formatting and returns 
+        a non-zero exit code if formatting is incorrect, making it useful for CI/CD validation.
+
+    terraform validate
+        Checks whether if terraform code is syntactically, correct and structure is correct.
+
+    Run order
+    -------------------
+    terraform init
+    terraform fmt -check
+    terraform validate
+    terraform plan
+
+    terraform show
+        Displays terraform state or plan information.
+        from this file terraform.tfstate
+
+    terraform show tfplan 
+       shows from a saved plan
+
+    terraform import
+        someone manually created an s3 bucket in aws and terraform knows nothing about it.
+        now you want terraform to manage it so you do 
+
+        terraform import aws_s3_bucket.logs my-bucket
+
+        Then update the Terraform code so it matches the actual bucket configuration.It will update the state file.
+        aws_s3_bucket - terrafrom resource type
+        logs - terraform logical/local resource name
+        my-bucket - existing aws bucket name, that already exists and being imported.
+
+17)  terraform.tfstate.backup
+        This is a local safety copy of the previous state.
+        Before Terraform overwrites the state file, it first copies the old state into: terraform.tfstate.backup
+        
+        terraform apply
+        1. Read old terraform.tfstate
+        2. Copy it → terraform.tfstate.backup
+        3. Write new terraform.tfstate
+
+        backup changes every time state changes
+
+        Does .backup still matter in S3 backend?
+        Mostly NO, State is written directly to S3, Versioning in S3 replaces the need for .backup
+
+        .backup is NOT a versioning system, it is just a temporary safety snapshot
+
+
+👉 or 
+“How rollback works if destroy partially fails (very important real-world question)”?????????????????????????????/
+
+
+📍Intermediate Level [ Terraform ]
+
+18) How does Terraform handle resource drift, and how do you prevent it?
+
+    Drift happens when the real infrastructure is changed outside Terraform.
+    Terraform detects drift using the command terraform plan
+        It:
+            Reads state file
+            Queries real infrastructure (AWS API)
+            Compares:
+                Code
+                State
+                Reality
+
+            Then shows:
+                ~ modified
+                - destroyed
+                + created
+
+    how do you prevent it?
+        Avoid manual changes
+        Restrict console access: IAM Restrictions
+        AWS Service Control Policies (SCP): Block manual changes outside CI/CD role
+        Remote State + Locking
+        Read-only production access
+
+    
+19) What are some best practices when working with large-scale Terraform configurations?
+    In large-scale Terraform environments, we follow modular architecture by breaking infrastructure into 
+    reusable modules such as VPC, EC2, and RDS. We separate environments like dev, QA, and prod using different state files and backends. 
+    We use remote state storage like S3 with DynamoDB locking for collaboration and safety. 
+    Secrets are managed using secure services like AWS Secrets Manager instead of hardcoding. 
+    CI/CD pipelines enforce validation, formatting, and approval-based deployments. 
+    We also implement version control for modules, use .tfvars for environment-specific configurations, and regularly perform drift detection 
+    using terraform plan. 
+    This ensures scalability, maintainability, and safety in enterprise-grade infrastructure.
+
+
+20) Can you explain how to handle complex dependencies in Terraform, 
+
+    Terraform handles complex dependencies using a dependency graph (DAG) and automatically determines execution order based on resource references. 
+    In real-world scenarios, we manage complex dependencies using module-based architecture with outputs and inputs, remote state data sources for cross-stack 
+    communication, and dynamic constructs like for_each, count, and dynamic blocks for scalable infrastructure. When dependencies are not automatically inferred,
+    we use explicit depends_on. Additionally, we avoid circular dependencies by redesigning module boundaries and use separate state files for large systems 
+    to reduce coupling. Terraform then executes resources in parallel where possible while respecting dependency order defined in the graph.
+
+
+22) How do you troubleshoot and debug Terraform configurations?
+
+    terraform validate
+    terraform fmt
+    terraform plan
+    terraform plan -refresh-only
+    terraform show
+    terraform state list
+
+
+🚨 1. State Locking Failure (DynamoDB / S3 backend)
+    ❌ Problem
+    Error: Error acquiring the state lock
+
+    Occurs when:
+        another terraform apply is running
+        previous run crashed
+        lock not released
+
+    🔍 How companies debug it
+
+    Check DynamoDB lock table:
+
+    aws dynamodb scan --table-name terraform-locks
+
+    Identify lock owner (session ID, user, pipeline)
+    Check CI/CD logs (GitHub Actions / Jenkins)
+    🛠 Fix
+        Wait for pipeline to finish OR
+        Force unlock:
+        terraform force-unlock <LOCK_ID>
+
+
+📍Scenario-Based Questions [ Terraform ]
+
+23) Imagine you are working on an infrastructure with multiple AWS resources. How would you split the Terraform configuration to be more modular and reusable?
+        Instead, you break infrastructure into logical modules + environments + state separation.
+
+25) How would you handle a situation where you need to update the instance type of an EC2 instance in AWS, but you want to avoid downtime?
+        In Terraform, changing an EC2 instance type results in resource replacement, which can cause downtime. To avoid this, in production we use strategies like Blue-Green deployment or Auto Scaling Groups. In Blue-Green, we create a new instance with the updated configuration and shift traffic using a load balancer before terminating the old instance. In Auto Scaling Groups, we update the launch template, and Terraform performs a rolling update, gradually replacing instances without downtime. Direct modification is not preferred as it leads to instance recreation and service disruption.
+
+26) What would you do if your terraform apply results in an error while trying to destroy a resource?
+        If a Terraform apply fails during resource destruction, I first analyze the error logs to identify the root cause, such as dependency violations or service constraints. Then I inspect the Terraform state using terraform state list and verify what was successfully destroyed and what remains. In most cases, I fix external dependencies like load balancer attachments or empty S3 buckets and retry the apply, since Terraform resumes from the failed step. If needed, I use targeted operations or state management commands like terraform state rm to correct inconsistencies. Finally, I ensure state and real infrastructure are aligned using refresh operations. In production, we also design infrastructure with proper dependencies to minimize destroy failures.
+
+21) How do you test Terraform code before deploying to production?
+        Before deploying Terraform to production, I follow a layered testing approach. First, I use terraform fmt and terraform validate to ensure 
+        code quality and syntax correctness. Then I run terraform plan to review infrastructure changes and optionally save the plan for controlled execution. 
+        In CI/CD pipelines, I integrate security and compliance tools like tfsec, tflint, or OPA policies to detect misconfigurations. 
+        I always test changes in lower environments such as dev and QA before production deployment. Finally, production deployments are controlled through 
+        approval-based pipelines with state locking and remote backend to ensure safety and consistency.
+
+
+What is a data source in Terraform?
+
+    a data source in terraform helps to read the existing infra related information without creating or managing that resources.
+
+    A Resource will create the resource, while a data source reads the existing infra information using the keyword data.
+
+    data "aws_vpc" "main" {
+    default = true
+    }
+
+    resource "aws_security_group" "web" {
+    name   = "web-sg"
+    vpc_id = data.aws_vpc.main.id
+    }
+
+    If a VPC already exists, I use a Terraform data source such as aws_vpc to fetch the VPC details dynamically instead of hardcoding values. 
+    I can search by VPC ID or tags. The returned VPC ID can then be referenced by other resources. Since EC2 instances are launched in subnets, 
+    I typically use both aws_vpc and aws_subnet data sources to fetch the required network information and then pass the subnet ID during EC2 creation. 
+    This makes the configuration reusable and avoids hardcoded infrastructure identifiers.
+
+What is HCL (HashiCorp Configuration Language)?
+    HCL (HashiCorp Configuration Language) is the language used to write Terraform configurations. It is a human-readable, 
+    declarative language used to define infrastructure resources, variables, outputs, modules, and providers.
+
+
+What is interpolation in Terraform?
+    Interpolation is the process of using the value of one variable, resource, data source, or expression inside another Terraform configuration.
+    
+
+What is the difference between root module and child module?
+    The root module is the main Terraform configuration directory where Terraform commands such as init, plan, and apply are executed. 
+    It acts as the entry point for the deployment. A child module is a reusable Terraform module that is invoked from the root module or 
+    another module using a module block. In large projects, the root module typically orchestrates infrastructure by calling child modules 
+    such as VPC, EC2, or RDS modules. This modular approach improves reusability, maintainability, and scalability of Terraform code.
+
+What is module registry?
+    A Terraform module registery is a repository or hub where reusable terraform 
+    modules are stored, versioned, and shared.
+
+    Instead of writing everything from the scratch, you can download and use the pre-built modules.
+    Types of modules:
+    1. Public terraform registery(provided by HashiCorp)
+    2. Private module registery
+    3. Git based modules
+
+    How terraform uses these??
+    When we run the terrafrom init command , it reads the module source and downloads it.
+
+
+What is terraform workspace?
+    It was a feature that lets you use multiple instances of the same terraform configuration using 
+    seperate state file.
+    workspace is an isolated environment such as dev, uat,prod that shares the same terraform code, but maintains
+    it own state file.
+
+    terraform workspace list
+
+
+How do you update existing infrastructure?
+    When Does Terraform Recreate Instead of Update?
+    Some attributes cannot be modified by AWS, like changing subnet id, 
+    in this case terrafrom recreates it, it destroys old and creates new one.
+    this is called forcenew.
+
+    Symbols meaning
+
+    + create new resource
+    - destroy resource
+    ~ update existing resource
+    -/+ destroy and recreate
+
+    How does Terraform know whether to update or recreate?
+      Terraform provider schema defines which attributes supports in place updates and which 
+      are marked as ForceNew. Terraform consults provider during the planning to 
+      determine required action.
+
+
+Q: Does Terraform require provider configuration to be in provider.tf?
+
+    A: No. Terraform loads all .tf files in the working directory and merges 
+    them into a single configuration. provider.tf is only a naming convention used for 
+    better organization.
+
+
+q) "When should you rerun terraform init?"
+    Answer:
+
+    Run terraform init whenever:
+
+    A new provider is added
+    A provider version changes
+    A new module is added
+    A module source changes
+    The backend configuration changes
+
+
+
+
+******* Key points*********
+    1. Yes, after adding a new module, you should run terraform init again.
+    2. Terraform automatically loads terraform.tfvars only for the root module. Not for child modules.
+       any terraform.tfvars inside the child modules is ignored during a normal run.
+
+       How Modules Normally Work:
+       Module Uses Variable in side the modules/s3/variables.tf but root is the one which passes the values.
+
+       In real projects, you almost never put terraform.tfvars inside reusable modules. The values are passed from the root module. 
+       That's what makes the module reusable.
+
+       Can a Terraform child module have its own terraform.tfvars?
+       --------------
+       It can physically exist, but Terraform will not automatically load it. Only the root module's .tfvars files are automatically processed. 
+       Child modules should receive values through module input variables. 
+       If a module needs local configuration, it must explicitly read files using functions like file() or define variable defaults.
+
+       terraform plan -var-file=dev.tfvars
+       Terraform loads that file into the root module only.
+
+
+       Outputs:
+       Because child outputs are internal to Terraform. Only the root module is exposed it.
+
+       Root → Child  = Variables (inputs)
+       Child → Root  = Outputs (return values)
+
+
+AWS s3 bucket: object_ownership
+------------------------------
+
+1. BucketOwnerEnforced (Recommended)
+
+    object_ownership = "BucketOwnerEnforced"
+    Rules:
+    ✅ Bucket owner owns every object
+    ✅ ACLs disabled
+    ✅ Use only IAM and Bucket Policies
+
+    Example:
+        Bucket Owner = Account A
+        Account B uploads file.txt
+        Owner of file.txt = Account A
+
+    This is the modern AWS recommendation.
+
+2. BucketOwnerPreferred
+
+    object_ownership = "BucketOwnerPreferred"
+
+    Rules:
+    ✅ ACLs still enabled
+    ✅ Bucket owner can become owner
+    ❌ Not guaranteed
+
+    Ownership depends on the ACL used during upload.
+
+3. ObjectWriter (Old behavior)
+
+    object_ownership = "ObjectWriter"
+
+    Rules:
+    ✅ ACLs enabled
+    ✅ Uploader always owns object
+
+    Example:
+
+    Bucket Owner = Account A
+    Account B uploads file.txt
+    Owner of file.txt = Account B
+
+
+This is the legacy behavior that often caused access issues.
+
+| Setting              | Who owns object?                         | ACLs     |
+| -------------------- | ---------------------------------------- | -------- |
+| BucketOwnerEnforced  | Bucket owner always                      | Disabled |
+| BucketOwnerPreferred | Usually bucket owner if correct ACL used | Enabled  |
+| ObjectWriter         | Uploader                                 | Enabled  |
+
+
+What is BucketOwnerEnforced?
+BucketOwnerEnforced is an S3 Object Ownership setting that makes the bucket owner the owner of all objects in the bucket and disables ACLs. 
+Access control is managed only through IAM policies and bucket policies.
+
+Mostly preferred BucketOwnerEnforced
+
+
+Lifecycle Rules
+------------------
+
+Lifecycle rules tell s3 to perform action acutomatically on objects after
+a certain amount of time.
+
+Instead of moving files or manually deleting it s3 does that for u.
+
+
+Common lifecycle actions:
+    Transition - Move object from one storage to another storage class.
+        Ex: Standard - Standard-IA - Glacier
+    Expiration - delete object
+        Ex: After 30 days
+
+        For app logs we follow this
+        Day 0      → S3 Standard
+        Day 30     → Standard-IA (Infrequent Access)
+        Day 90     → Glacier
+        Day 365    → Delete
+
+    No code needed and AWS does this automatically, it moves to different storage classes.
+
+    Why not move directly to Glacier?
+    retrieval can take minutes or hours, depending on the Glacier tier
+    So many companies first move to IA, then later archive to Glacier.
+
+    resource "aws_s3_bucket_lifecycle_configuration" "this" {
+        bucket = aws_s3_bucket.this.id
+
+        rule {
+            id = "log-rotation-cycle"
+            status = "Enabled"
+
+            transition {
+            days = 15
+            storage_class = "STANDARD_IA"
+            }
+            transition {
+            days = 30
+            storage_class = "Glacier"
+            }
+            expiration {
+            days = 60 # eligible for deletion at 60 days.
+            }
+        }
+    }
+
+Bucket Policies:
+-----------------------
+    A Bucket Policy is a resource-based policy attached directly to an S3 bucket.
+    It says , Who can access this bucket and what can they do?
+
+
+
+
+

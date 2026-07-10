@@ -1,0 +1,13 @@
+| Method                     | Purpose                  |
+| -------------------------- | ------------------------ |
+| `list_objects_v2()`        | List files in bucket     |
+| `get_object()`             | Read file                |
+| `put_object()`             | Create object            |
+| `upload_file()`            | Upload local file        |
+| `download_file()`          | Download file            |
+| `delete_object()`          | Delete file              |
+| `head_object()`            | Check existence/metadata |
+| `copy_object()`            | Copy object              |
+| `list_buckets()`           | List buckets             |
+| `create_bucket()`          | Create bucket            |
+| `generate_presigned_url()` | Temporary URL            |
