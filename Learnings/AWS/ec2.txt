@@ -1,0 +1,526 @@
+1)EC2 Fundamentals
+    EC2 (Elastic Compute Cloud) is AWS's virtual server where we can deploy applications.
+    It allows us to provision compute resources without managing physical hardware.
+
+    In production, EC2 is generally used to host:
+        Web applications
+        APIs
+        Jenkins servers
+        Bastion Hosts
+        Self-hosted GitHub runners
+        Databases (less common nowadays)
+        Kubernetes worker nodes (EKS self-managed)
+
+        Instead of buying servers, AWS provisions virtual servers within minutes.
+
+2)EC2 Lifecycle
+    Launch
+    ↓
+    Pending
+    ↓
+    Running
+    ↓
+    Stopping
+    ↓
+    Stopped
+    ↓
+    Starting
+    ↓
+    Running
+    ↓
+    Reboot
+    ↓
+    Terminate
+
+    Pending:
+        AWS is preparing Hypervisor,Network,Storage,ENI,EBS
+        Cannot login at this moment.
+    Running:
+        Server is available. 
+        SSH works, Applications run, Billing starts.
+    Stopping:
+        OS shuts down gracefully.
+    Stopped:
+        CPU gone, Memory gone, Only EBS remains. 
+        You pay only for EBS, Elastic IP (sometimes)
+        No compute charges.
+    Starting:
+        AWS allocates hardware again.
+        Instance ID remains same,Private IP usually remains,Public IP changes (unless Elastic IP).
+    Reboot:
+        Equivalent to Linux reboot.
+        No hardware change, No IP change, Very fast.
+    Terminated:
+        Instance permanently deleted.
+        Instance Store data lost,EBS deleted only if DeleteOnTermination=true.
+        Cannot recover.
+
+    ------------
+    Questions:
+        When an EC2 instance is stopped, does AWS reserve the CPU and RAM for that instance?
+            No. When an EBS-backed EC2 instance is stopped, AWS deallocates the underlying compute resources, 
+            including the vCPU and RAM. Only the persistent storage, such as the EBS volume and the instance metadata, is retained. 
+            When the instance is started again, AWS allocates compute resources on a suitable physical host, which may or may not be 
+            the same host as before, and reattaches the existing EBS volume.
+        
+        When ec2 starts again, how will it attach the correct ebs to ec2?
+            Each instance has a unique Instance ID and each volume has a unique Volume ID.
+            AWS already knows which EBS volume belongs to which EC2 instance through metadata stored in its control plane.
+
+            The root EBS volume must be in the same Availability Zone as the EC2 instance.
+            AWS cannot attach an EBS volume from ap-south-1b directly to an EC2 instance in ap-south-1a.
+
+        Why Doesn't Reboot Release CPU/RAM?
+            A reboot is just an OS restart.AWS does not remove the VM from the host.
+            So:
+                CPU remains allocated ✅
+                RAM remains allocated (though its contents are cleared during reboot) ✅
+                Public IP remains the same ✅
+                Private IP remains the same ✅
+
+        Why Does Public IP Change when Stopped?
+            Since the VM may start on a different host, AWS doesn't guarantee you'll get the same public IPv4 address.
+            Unless you use an Elastic IP, which remains the same.
+
+            The private IP within your VPC normally stays the same because it belongs to the ENI, not to the underlying hardware.
+
+3)Instance Types
+    Different workloads need different hardware.AWS provides optimized instance families.
+    
+    General Purpose (T/M)
+        Example:
+            t3.micro
+            t3.medium
+            m5.large
+
+        we get Balanced CPU, RAM, Cheap
+        Used for Web servers,APIs,Jenkins,Small databases
+
+    Compute Optimized (C)
+        c5.large, c6i.large
+        
+        More CPU, Less RAM
+        Used for Java,Compilation,Batch jobs,Video encoding
+
+    Memory Optimized (R/X)
+        r5.large, r6g.large, Large RAM
+
+        Used for Redis,Elasticsearch,SAP, Large databases
+
+    Storage Optimized (I/D)
+        Example: i4i.large Very fast SSD
+
+        Used for Kafka,Cassandra,ElasticSearch
+
+    GPU
+        g5, p5
+        Used for Machine Learning, AI, Rendering
+
+    ----------
+    Questions:
+
+        How do you choose instance type?
+            Depends on workload.CPU intensive or Memory or storage
+            in generally for Balanced applications choose type t/M
+
+4)AMI (Amazon Machine Image)
+    AMI is a preconfigured machine image containing OS, software, and configuration. 
+    In production, organizations typically build custom golden AMIs using tools like Packer so every EC2 launched is standardized.
+
+    Think of AMI as template
+    Contains
+        OS + Packages + Configurations + Applications
+
+    Types of AMI
+        AWS Managed, Marketplace, Custom AMI
+
+    Custom AMI:
+        Instead of installing applications on every deployment,
+        
+        Company creates one AMI containing Ubuntu,Java,Docker,CloudWatch Agent,Security patches,Application dependencies
+        Every EC2 launched from this AMI is identical.
+
+        Instead of installing Docker every deployment,
+            Pipeline
+            ↓
+            Build AMI using Packer
+            ↓
+            Store AMI
+            ↓
+            Launch new EC2
+            ↓
+            Deploy application
+        This makes deployments faster and consistent.
+
+        Packer:
+            Packer is an Infrastructure as Code tool used to create machine images automatically. 
+            In AWS, it is commonly used to build custom AMIs. We define a template that specifies a base AMI, 
+            a temporary EC2 instance configuration, and provisioning steps such as installing Docker, Java, CloudWatch Agent, or 
+            application dependencies. During execution, Packer launches a temporary EC2 instance, provisions it over SSH, creates a 
+            new AMI from the configured instance, and then terminates the temporary EC2. This provides consistent, versioned, and reusable 
+            AMIs that can be used by Launch Templates, Auto Scaling Groups, and other deployment workflows.
+
+            Here Packer is a separate tool, developed by hcl we use that and do
+                packer init .
+                packer build .
+            Every new instance starts with everything pre-installed.
+
+        ----------
+        Questions:
+            Is Packer part of Terraform?
+                No, 
+                Packer = Creates the image 
+                Terraform = manage resources
+
+            Why not let Terraform install everything?
+                Terraform is intended for provisioning infrastructure, while Packer is intended for creating immutable machine images. 
+                We use Packer to pre-install software and create a versioned AMI. Terraform then launches instances from that AMI, 
+                resulting in faster boot times, more consistent environments, and reduced configuration drift.
+                
+                There are drawbacks with Terraform:
+                    Every EC2 repeats the installation.
+                    Instance startup takes longer.
+
+            Where are AMIs stored?
+                When Packer finishes building an AMI, you do not push it anywhere manually.
+                Packer calls the AWS EC2 API(CreateImage),AWS automatically registers the AMI in your AWS account.
+                The AMI now appears under AMI section.
+
+            AMIs are immutable??
+                AMIs are read-only after creation.You do not modify an existing AMI. 
+                You build a new AMI and have your infrastructure use the new AMI.
+
+                AMIs are immutable, so we don't modify an existing AMI. 
+                We update the Packer template, build a new versioned AMI, test it, and then update the Launch Template or Auto Scaling Group 
+                to use the new AMI. Existing instances are gradually replaced through a rolling deployment. 
+                We also keep older AMIs for rollback until we're confident the new version is stable.
+
+            
+5)Regions & Availability Zones
+    AWS Region:
+        A Region is a geographic area where AWS operates infrastructure. 
+        Each Region contains multiple Availability Zones and is isolated from other Regions.
+
+        Examples:
+            Mumbai → ap-south-1
+            Singapore → ap-southeast-1
+
+            Think of a Region as a city or metropolitan area where AWS operates infrastructure.
+            Each Region is isolated from the others, which helps with fault isolation and compliance.
+
+    Availability Zone (AZ):
+        An Availability Zone is one or more physically separate data centers within a Region. 
+        Each AZ has independent power, cooling, and networking, and is connected to other AZs 
+        in the same Region using low-latency private networking.
+
+            Example:
+                Region: ap-south-1 (Mumbai)
+                ├── ap-south-1a
+                ├── ap-south-1b
+                └── ap-south-1c
+
+                Each AZ has:
+                Independent power
+                Independent cooling
+                Independent networking
+
+                They are connected to other AZs in the same Region using high-speed, low-latency private links.
+    ----------
+    Questions:
+
+        1. Why do we have multiple AZs?
+            To improve high availability.Suppose your application runs only in one AZ, ap-south-1a. If that AZ experiences an outage:
+            then it will be difficult to handle, that's why multiple AZ concept came.
+
+        2. Region vs Availability Zone?
+            | Region                      | Availability Zone                                   |
+            | --------------------------- | --------------------------------------------------- |
+            | Geographic location         | Separate data center(s) within a Region             |
+            | Example: `ap-south-1`       | Example: `ap-south-1a`                              |
+            | Contains multiple AZs       | Belongs to one Region                               |
+            | Isolated from other Regions | Connected privately to other AZs in the same Region |
+
+        3. Why deploy across multiple AZs?
+            Because it provides:
+            High availability
+            Fault tolerance
+            Protection against the failure of a single AZ
+
+            For example, services like an Application Load Balancer can distribute traffic across EC2 instances in multiple AZs, 
+            and Amazon RDS can be configured for Multi-AZ deployments.
+        
+        4. Can an EC2 instance be in multiple AZs?
+            No.An EC2 instance is launched in exactly one Availability Zone.
+            If you need redundancy, you launch multiple EC2 instances in different AZs and place a load balancer.
+
+        5. An EC2 instance can exist in only one Availability Zone??
+
+            Scenario 1: Single EC2 (Single AZ)
+                Suppose you launch one EC2: Region: ap-south-1, If AZ-a goes down, Your application is unavailable.
+
+            Scenario 2: Two EC2s in Different AZs
+                Instead of one EC2, launch two:
+                Region: ap-south-1
+                AZ-a                 AZ-b
+                EC2-1                EC2-2
+
+            Now you have redundancy, but there's a problem:
+            How do users know which EC2 to connect to?
+            Should they use: EC2-1 IP?  EC2-2 IP?
+
+            If EC2-1 fails, how will users automatically switch to EC2-2?
+            This is exactly what a Load Balancer solves.
+
+        6. Load Balancer:
+            A Application Load Balancer sits in front of your EC2 instances.
+                            Users
+                                │
+                                ▼
+                    Application Load Balancer
+                                │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+                AZ-a                  AZ-b
+                EC2-1                 EC2-2
+
+            Users only know one DNS name (the load balancer's address).
+            The Load Balancer decides which healthy EC2 should receive each request.
+
+            What if EC2-1 crashes, The Load Balancer performs health checks.
+            It stops sending traffic to EC2-1. It sends all traffic to EC2-2.
+            Users usually don't notice the failure.
+
+            What if the entire AZ fails?
+                Traffic continues to EC2-2 in AZ-b.
+                This is why AWS recommends deploying across multiple AZs.
+
+            Where is the Load Balancer deployed?
+                This is another common interview question.
+                An Application Load Balancer (ALB) is not tied to a single AZ. It was a regional service.
+
+                When you create an ALB, you select multiple subnets, typically one subnet in each AZ.
+                Example: Region: ap-south-1
+                    AZ-a
+                    Subnet-A
+                        │
+                        ▼
+                    ALB Node
+
+                    AZ-b
+                    Subnet-B
+                        │
+                        ▼
+                    ALB Node
+
+                AWS creates load balancer nodes in each selected AZ and manages them for you. 
+                To you, it appears as one load balancer with one DNS name.
+
+6)AWS EC2 Key Pair
+    A Key Pair is used to securely connect (SSH) to an EC2 Linux instance.
+    It consists of two keys: public and private, aws stores the public and we have the private with us, .pem
+
+    How it works?
+        When you create an EC2 instance, AWS places Public Key inside EC2, ~/.ssh/authorized_keys
+
+        ssh -i my-key.pem ubuntu@<EC2-public-IP>
+
+    Why do we need Key Pairs?
+        Because AWS does not allow password-based SSH login by default.
+        AWS uses: private key + public key authentication which is much more secure.
+
+    What happens if you lose the .pem file?
+        You cannot download the same private key again from AWS. AWS does not store your private key.
+
+        Recovery options
+            Option 1: Use another user/key
+                If you have another way to access the instance: ssh new-key.pem ubuntu@server
+                
+                Add a new public key: cat new-key.pub >> ~/.ssh/authorized_keys
+                
+                Now you can connect using the new private key.
+
+            Option 2: Create a new AMI
+                Create a new AMI from the instance, launch a new instance with a new key pair.
+
+            Option 3: Use AWS Systems Manager Session Manager
+                If SSM Agent is configured:
+
+                AWS Console
+                    |
+                    |
+                Systems Manager Session Manager
+                    |
+                    |
+                Shell access
+
+                No SSH key required.
+        
+7)Elastic IP (EIP)
+    An Elastic IP address is a static public IPv4 address provided by AWS that you can associate with an EC2 instance.
+    To keep the same public IP address even if you stop/start an EC2 instance.
+
+    Why do we need Elastic IP?
+        By default, an EC2 instance gets a public IPv4 address when launched.
+        But if you stop and start the EC2 instance, The public IP changes.
+
+        This is a problem if:
+            Users access your application using IP
+            DNS records point to that IP
+            External systems whitelist your IP
+        
+        Elastic IP is a Regional Resource, An Elastic IP belongs to a Region, not an Availability Zone.
+
+        Can we move Elastic IP between instances?
+            Yes. After one ec2 fails, we can use it.
+
+        Elastic IP with Load Balancer
+            In modern architectures, you usually do not attach Elastic IPs directly to application EC2 instances.
+
+            EC2 instances can change.
+            Auto Scaling creates new instances.
+            Load Balancer provides a stable endpoint.
+
+        Elastic IP with NAT Gateway
+            Private EC2 instances need internet access for updates.
+                
+                Private EC2
+                    |
+                NAT Gateway
+                    |
+                Elastic IP
+                    |
+                Internet
+            External websites see the NAT Gateway's Elastic IP.
+
+        Elastic IP vs Public IP
+            | Public IPv4                                     | Elastic IP                        |
+            | ----------------------------------------------- | --------------------------------- |
+            | Automatically assigned                          | Manually allocated                |
+            | Changes after stop/start                        | Static                            |
+            | Cannot move easily                              | Can move between instances        |
+            | Free while attached (depending on AWS policies) | Charges may apply for unused EIPs |
+            | Instance-specific                               | Regional resource                 |
+
+8)Public IP vs Private IP
+    | Public IP                | Private IP         |
+    | ------------------------ | ------------------ |
+    | Internet reachable       | VPC only           |
+    | Changes after stop/start | Usually stays same |
+    | Globally unique          | VPC unique         |
+    | Used by users            | Used internally    |
+
+
+9)Can two EC2s communicate using Public IP?
+    Yes.
+    Should they?
+        No.
+    Always use Private IP inside VPC.
+        Lower latency.
+        No internet.
+        More secure.
+
+10)ENI (Elastic Network Interface)
+    An Elastic Network Interface (ENI) is a virtual network card (NIC) attached to an EC2 instance.
+
+    Think of it exactly like the network card inside your laptop.
+        Your laptop has a physical network card.
+        An EC2 instance has a virtual network card, called an ENI.
+
+        EC2 Instance
+        ┌────────────────────────┐
+        │                        │
+        │   Operating System     │
+        │                        │
+        │   eth0 (Primary ENI)   │────────► VPC Network
+        │                        │
+        └────────────────────────┘
+        Without an ENI, an EC2 instance cannot communicate over the network.
+
+        What does an ENI contain?
+            An ENI stores the networking configuration for an EC2 instance.
+            The ENI is simply the EC2's virtual network card.
+
+            It includes:
+                Private IP address
+                Optional secondary private IP addresses
+                Public IP or Elastic IP (if associated)
+                MAC address
+                Security Groups
+                Subnet information
+
+            Think of it like this:
+                ENI
+
+                ├── Private IP
+                ├── Secondary IPs
+                ├── MAC Address
+                ├── Security Groups
+                ├── Elastic IP (optional)
+                └── Subnet
+
+            Suppose you launch an EC2.AWS automatically creates ENI-1234
+
+            Primary ENI(eth0)
+                Every EC2 instance has at least one ENI.This is called the Primary ENI.
+                You cannot detach the primary ENI while the instance is running.
+
+            Secondary ENIs(eth1)
+                Some instance types support attaching additional ENIs.
+                EC2
+                ├── eth0
+                │
+                ├── eth1
+                │
+                └── eth2
+
+            Each ENI can have:
+                Different Security Groups
+                Different Private IPs
+                Different Elastic IPs (where applicable)
+
+            Why use multiple ENIs?
+                Imagine a server handling both application traffic and management traffic.
+                EC2
+                        ┌────────────────────┐
+                        │                    │
+                eth0 ───► Production Network
+                        │
+                eth1 ───► Management Network
+                        └────────────────────┘
+
+                Benefits include:
+                    Separating traffic
+                    Different Security Groups
+                    Different subnets (within the same Availability Zone)
+                    Easier failover in some architectures
+
+        ENI and Elastic IP
+            Many people think the Elastic IP belongs directly to the EC2.
+            The Elastic IP is associated with the ENI.
+            Security Groups are also attached to the ENI.
+            This is why changing the Security Group is really changing the ENI's configuration.
+
+        Can an ENI move between instances?
+            Yes. You can detach a secondary ENI from one EC2 instance and attach it to another 
+            compatible EC2 instance within the same Availability Zone.
+
+        Can one ENI belong to multiple EC2 instances?
+            One ENI can be attached to only one EC2 instance at a time.
+
+        An ENI is created in a specific subnet, and since a subnet belongs to one Availability Zone, 
+        the ENI also belongs to that AZ.
+        Therefore, if you detach an ENI from one instance, you can only attach it to 
+        another instance in the same AZ. You cannot move an ENI across Availability Zones or Regions.
+
+
+        Are the Private IP and Public IP stored in the ENI?
+            The private IP belongs to the ENI.If you detach this ENI and attach it to another EC2, that EC2 gets the same private IP.
+
+        
+        Elastic IP is associated with the ENI, not directly with the EC2.
+        The ENI is still the same. The Elastic IP is still associated with that ENI.
+        Therefore:
+            Private IP = Same ✅
+            Public IP = Same ✅
+
+        

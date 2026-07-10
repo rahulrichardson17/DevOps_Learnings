@@ -1,0 +1,249 @@
+1)EC2 Storage Architecture
+                    EC2 Instance
+                 +----------------+
+                 |                |
+                 |  OS            |
+                 |  Applications  |
+                 |                |
+                 +-------+--------+
+                         |
+         ----------------------------------
+         |               |                |
+       EBS            Instance Store     EFS
+   (Block Storage)   (Local Disk)     (Shared File)
+
+
+2)EBS (Elastic Block Store) network storage.
+    EBS is a block storage for EC2.Think of it like a virtual hard disk.
+    It survives even if the EC2 instance stops.
+
+    Characteristics
+        ✔ Persistent
+        ✔ Can detach and attach
+        ✔ Snapshot support
+        ✔ Encryptable
+        ✔ Resize anytime
+        ✔ One AZ only
+
+    Types:
+        gp3
+            General purpose SSD
+
+            Most commonly used
+            Applications
+            Web Servers
+            Kubernetes
+            Jenkins
+            Docker
+
+        io2
+            High IOPS SSD
+            Used for
+                Oracle
+                SQL Server
+                High Transaction databases
+
+        st1
+            Big Data
+            Log Processing
+            Streaming
+
+        sc1
+            Cold HDD
+            Very cheap
+            Used for backups.
+    
+    Questions
+    --------------
+        Can one EBS volume be attached to multiple EC2 instances?
+            normally No, Except Multi-Attach supported on io1/io2 volumes.
+
+        Can EBS move across AZ?
+            No. Because EBS belongs to one AZ.
+            You need snapshot → restore in another AZ.
+
+        Can we resize EBS?
+            Yes. Without stopping the instance.
+            Increase
+                Size
+                IOPS
+                Throughput
+            Then extend filesystem
+
+        Root Volume
+            Every EC2 has a root volume.
+
+            Example
+                /
+                Ubuntu
+                Windows C:
+
+            It stores
+                OS,Bootloader,Applications,Logs,Configuration
+
+            EC2
+            Root EBS
+        ------------------------
+        Ubuntu
+        /etc
+        /bin
+        /var
+        /home
+
+        Can root volume be detached?
+            No, Not while instance is running.Need instance stopped.
+        
+        Delete on Termination
+            DeleteOnTermination=True then only root can be deleted.
+
+        Root Volume Full
+            Production server suddenly becomes inaccessible.
+
+            I first check whether it's a genuine disk utilization issue 
+            using df -h and du. If cleanup isn't sufficient, I modify the EBS volume
+            from the AWS console, wait for the modification to complete, 
+            then extend the partition and filesystem online using growpart 
+            and resize2fs or xfs_growfs, depending on the filesystem. 
+            This usually avoids downtime.
+
+            Step 1: Check disk
+                df -h
+            Step 2:Identify directory
+                du -sh /*
+            Step 3:Find huge files
+                find / -type f -size +500M
+            Step 4
+                Delete
+                Old logs
+                Temp files
+                Unused packages
+                Docker images
+            Step 5: If still full
+                Increase EBS
+                Example
+                50GB
+                ↓
+                100GB
+                AWS Console
+                ↓
+                Modify Volume
+
+            Step 6:Extend filesystem
+                For ext4
+                    sudo growpart /dev/nvme0n1 1
+                    sudo resize2fs /dev/nvme0n1p1
+                For XFS
+                sudo xfs_growfs /
+
+            Step 7:Verify
+                df -h
+
+3)Instance Store
+    Instance Store is Local SSD physically attached to the host. NOT network storage.
+
+    Difference b/w ebs and Instance store
+        | EBS             | Instance Store |
+        | --------------- | -------------- |
+        | Persistent      | Temporary      |
+        | Network Storage | Local Storage  |
+        | Snapshot        | No Snapshot    |
+        | Detachable      | Cannot detach  |
+        | Slightly slower | Extremely fast |
+
+
+4)EFS (Elastic File System)
+    NFS in AWS, network filesystem
+        One filesystem,Many EC2s
+           EFS
+        /shared-data
+        /images
+        /uploads
+        /configs
+        /home
+
+        /      |      \
+
+    EC2      EC2      EC2
+
+    Characteristics
+        ✔ Shared
+        ✔ Managed
+        ✔ Auto Scales
+        ✔ Multi AZ
+        ✔ Linux only (NFS)
+
+    Questions:
+    -----------
+        Can multiple EC2 instances write simultaneously?
+            Yes.That's exactly why EFS exists.
+
+    Difference b/w ebs and EFS
+        | EBS           | EFS          |
+        | ------------- | ------------ |
+        | One EC2       | Many EC2     |
+        | Block Storage | File Storage |
+        | Single AZ     | Multi AZ     |
+        | Fixed Size    | Auto Scale   |
+
+5)Snapshots
+    Snapshots are backups of EBS.
+    EBS
+    ↓
+    Snapshot
+    ↓
+    S3 Backend
+    ↓
+    Restore later
+
+    AWS manages the underlying storage, which is implemented on Amazon S3, though you don't access snapshots as regular S3 objects.
+
+    Can snapshot restore to larger volume?
+        Yes.
+        Smaller?
+            No.
+    Can snapshot move to another Region?
+        Yes.
+        Copy Snapshot
+        ↓
+        New Region
+        ↓
+        Create EBS
+
+6)EBS vs EFS vs Instance Store
+    | Feature      | EBS          | EFS                  | Instance Store |
+    | ------------ | ------------ | -------------------- | -------------- |
+    | Storage Type | Block        | File                 | Local Block    |
+    | Persistent   | Yes          | Yes                  | No             |
+    | Shared       | No           | Yes                  | No             |
+    | Multi AZ     | No           | Yes                  | No             |
+    | Snapshot     | Yes          | N/A (use AWS Backup) | No             |
+    | Performance  | High         | Moderate-High        | Very High      |
+    | Best Use     | OS, DB, Apps | Shared Files         | Cache, Temp    |
+
+
+Scenario 1: Root volume is 100% full
+    Check usage (df -h, du), clean up logs/temp files, 
+    expand the EBS volume, then extend the filesystem.
+
+Scenario 2: Need another EC2 to use the same application data
+    Use EFS if both instances need concurrent read/write access. 
+    If only one instance needs the data at a time, you can detach an EBS volume 
+    and attach it to another instance (after unmounting and detaching).
+
+Scenario 3: Database storage
+    Use EBS (typically gp3 or io2 depending on performance requirements). 
+    Do not use Instance Store for persistent databases.
+
+Scenario 4: Need ultra-fast temporary storage
+    Use Instance Store because it offers local NVMe/SSD performance, 
+    but ensure the application can tolerate data loss.
+
+Scenario 5: Need to migrate an EBS volume to another Availability Zone
+    Create an EBS snapshot, create a new EBS volume from that snapshot 
+    in the target AZ, and attach it to the EC2 instance.
+
+Scenario 6: Accidentally terminated an EC2 instance
+    If the root volume had Delete on Termination = Yes, 
+    the root EBS volume is deleted. Recovery depends on having an EBS snapshot or an AMI. 
+    If Delete on Termination = No, you can launch a new EC2 instance and attach the preserved root volume (or recover data from it).
+
