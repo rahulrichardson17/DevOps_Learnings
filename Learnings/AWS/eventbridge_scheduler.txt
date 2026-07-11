@@ -1,0 +1,88 @@
+1)What is EventBridge Scheduler?
+    EventBridge Scheduler is a fully managed scheduling service that lets 
+    you execute an AWS API call or invoke a target at a specific time or on a recurring schedule.
+
+    Run this task at a specific time without managing any servers.
+    AWS manages the schedule for you.
+
+2)Why EventBridge Scheduler?
+    Benefits:
+        ✅ Fully managed
+        ✅ Highly available
+        ✅ No server management
+        ✅ Supports millions of schedules
+        ✅ Supports retries
+        ✅ Supports flexible delivery windows
+        ✅ Can invoke many AWS services directly
+    
+3)Supported Targets
+    Scheduler can invoke many targets.
+
+    Lambda
+    Step Functions
+    SNS
+    SQS
+    EventBridge Bus
+    ECS Tasks
+    Batch Jobs
+    SageMaker
+    AWS SDK API Calls
+
+4)Schedule Types
+
+    One-Time Schedule: Runs once.
+
+    Rate Expression: Runs repeatedly.
+        ex: rate(5 minutes) Runs every 5 minutes.
+
+    Cron Expression: schedule via cron syntax cron(0 2 * * ? *)
+
+5)Retry Policy
+    Suppose Lambda fails. Scheduler retries automatically.
+    You configure Retry Attempts and Maximum Event Age
+        Example:
+            Retry 3 times
+            If still failing
+                ↓
+                DLQ
+            
+6)Questions
+
+    Difference between EventBridge Rule and Scheduler?
+        Rule reacts to events.
+        Scheduler runs at scheduled times.
+    
+    EventBridge Rule vs EventBridge Scheduler??
+        | EventBridge Rule        | EventBridge Scheduler       |
+        | ----------------------- | --------------------------- |
+        | Reacts to events        | Runs on schedules           |
+        | Matches AWS events      | Executes at a specific time |
+        | Event pattern filtering | Advanced scheduling         |
+        | Limited scheduling      | Purpose-built scheduler     |
+
+    Why is IAM Role required?
+        Because Scheduler must be authorized to invoke the target.
+
+        Scheduler assumes an IAM role that has permission to invoke the 
+        configured target (for example, lambda:InvokeFunction for Lambda or ecs:RunTask for ECS).
+
+    When would you choose EventBridge Scheduler over Kubernetes CronJobs?
+        
+        Use EventBridge Scheduler when:
+            The workload is AWS-centric (Lambda, ECS, Step Functions, Batch, SDK calls).
+            You don't want to depend on a Kubernetes cluster being available.
+            You need millions of schedules or one-time scheduled tasks.
+
+        Use Kubernetes CronJobs when:
+            The job is part of your Kubernetes application.
+            It needs to run as a container with cluster-local networking, volumes, or Kubernetes resources.
+
+        Can EventBridge Scheduler invoke Lambda directly?
+            Yes. EventBridge Scheduler can directly invoke a Lambda function by assuming an IAM role 
+            that has lambda:InvokeFunction permission.
+
+        Can EventBridge Scheduler send messages directly to SQS?
+            Yes. It can directly call the SendMessage API on an SQS queue using an IAM role 
+            with sqs:SendMessage permission.
+
+        
