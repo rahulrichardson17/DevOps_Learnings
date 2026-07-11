@@ -1,0 +1,177 @@
+1)Load Balancing
+    Why do we need a Load Balancer?
+        Imagine your application has only one EC2.
+
+                  Users
+                    |
+                    |
+                +--------+
+                | EC2-1  |
+                +--------+
+
+        Problems:
+            If EC2 crashes → Website is down.
+            During high traffic → EC2 becomes overloaded.
+            No High Availability.
+            No Scalability.
+
+        Now add more EC2s.
+
+                Users
+                |
+            -------------
+            |     |     |
+            EC2   EC2   EC2
+
+    Question:
+        How do users know which EC2 to connect to?
+        They don't. That's why we need a Load Balancer.
+
+    What is a Load Balancer?
+        A Load Balancer sits between users and servers.
+             Internet
+                 |
+            +------------------+
+            | Load Balancer    |
+            +------------------+
+                /      |       \
+            EC2-1   EC2-2   EC2-3
+
+        Responsibilities:
+            Receives requests
+            Chooses a healthy server
+            Distributes traffic
+            Removes unhealthy servers
+            Improves availability
+
+        Think of it like a receptionist in a hospital. 
+        Patients don't choose a doctor directly—the receptionist directs them to an available one.
+
+    Types of AWS Load Balancers
+        AWS provides four types:
+
+        | Load Balancer                   | Layer                 | Best For                                |
+        | ------------------------------- | --------------------- | --------------------------------------- |
+        | Application Load Balancer (ALB) | Layer 7 (HTTP/HTTPS)  | Web Applications                        |
+        | Network Load Balancer (NLB)     | Layer 4 (TCP/UDP/TLS) | High-performance & low latency          |
+        | Gateway Load Balancer (GWLB)    | Layer 3/4             | Network appliances (firewalls, IDS/IPS) |
+        | Classic Load Balancer (CLB)     | Layer 4 & 7 (legacy)  | Older applications                      |
+
+        All these load balancers are part of the Elastic Load Balancing (ELB) service.
+        Elastic Load Balancing (ELB)
+        │
+        ├── Application Load Balancer (ALB)
+        ├── Network Load Balancer (NLB)
+        ├── Gateway Load Balancer (GWLB)
+        └── Classic Load Balancer (CLB) - Legacy
+
+    Application Load Balancer (ALB):
+
+        This is the most commonly used load balancer today.
+        Works only with:
+            HTTP,HTTPS, WebSockets
+            HTTP/2 (and HTTP/3 support has expanded over time depending on AWS features)
+
+        ALB Features:
+            Layer 7
+            Content-based routing
+            Host-based routing
+            Path-based routing
+            SSL termination
+            WebSocket support
+            Health checks
+            Target Groups
+            WAF integration
+
+        Path-Based Routing:
+            One ALB can route traffic based on URL paths. One ALB can serve multiple applications.
+            /api/*
+            ↓
+            Backend API Servers
+
+            -------------------
+            /images/*
+            ↓
+            Image Servers
+
+            -------------------
+            /admin/*
+            ↓
+            Admin Servers
+
+        Host-Based Routing:
+            ALB can route using the hostname.
+
+            api.company.com
+            ↓
+            API Servers
+
+            ------------------
+            shop.company.com
+            ↓
+            Shopping App
+
+            ------------------
+            blog.company.com
+            ↓
+            Blog Servers
+
+            Very common in microservices.
+
+        Target Groups:
+            This is one of the most important concepts.
+            ALB never sends traffic directly to EC2.
+            It sends traffic to Target Groups.
+
+            Internet
+                |
+                ALB
+                |
+            +----------------+
+            Target Group
+            +----------------+
+            /      |      \
+            EC2   EC2   EC2
+
+            A Target Group contains:
+                EC2 Instances
+                ECS Tasks
+                Lambda Functions (for ALB)
+                IP Addresses
+
+            Each routing rule forwards traffic to a target group.
+
+
+            Health Checks
+                Every few seconds, ALB checks whether a target is healthy.
+                If it was unhealthy,ALB stops sending new requests to that target.
+
+            1. What is Sticky Session?
+                Sticky Sessions (Session Affinity) ensure that requests from the same client are routed to the same backend instance 
+                for a configurable period, typically using a cookie.
+
+            2. Why do we use Sticky Sessions?
+                To support applications that store session data locally on the EC2 instance.
+
+            3. What is Cross-Zone Load Balancing?
+                Cross-Zone Load Balancing allows the load balancer to distribute incoming traffic evenly across 
+                healthy targets in all enabled Availability Zones, regardless of which load balancer node initially receives the request.
+
+            4. Is Cross-Zone enabled by default?
+                ALB: ✅ Yes, always enabled.
+                NLB: ❌ Disabled by default (can be enabled).
+                CLB: Configurable.
+
+            5. If ALB already balances traffic across AZs, why do we still need an Auto Scaling Group?"
+                ALB distributes incoming traffic to healthy instances.
+                Auto Scaling Group adjusts the number of instances based on demand or health.
+
+                ALB decides where traffic goes.
+                ASG decides how many instances should exist.
+
+                Together, they provide a highly available and scalable architecture.
+
+            6. Deploying a new application version without interrupting active users
+                Use deregistration delay so existing connections complete gracefully while new requests are routed 
+                to healthy replacement instances.
+            

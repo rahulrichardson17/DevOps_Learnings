@@ -224,6 +224,69 @@
         Long-running batch jobs
         Critical processing
 
+13)Lifecycle Hooks
+    Normally, when ASG launches an instance:
+    But what if your application needs extra setup before it can serve users?
+
+    For example:
+        Install additional software
+        Download configuration files
+        Register with a monitoring tool
+        Join a cluster
+        Restore data
+        Run security scans
+
+        Without a lifecycle hook, the instance might receive traffic before it's actually ready.
+
+    With a launch hook:
+        The instance waits until your initialization is complete.
+        Users only reach a ready application.
+
+    Interview Questions
+        1. What is a Lifecycle Hook?
+            A Lifecycle Hook allows you to pause an EC2 instance during launch or termination 
+            so you can perform custom actions before the instance starts serving traffic or before it is terminated.
+
+        2. Why do we use Lifecycle Hooks?
+            To perform initialization or cleanup tasks, such as:
+
+                Installing software
+                Downloading configuration
+                Registering with monitoring
+                Uploading logs
+                Draining connections
+                Completing background jobs
+
+        3. What are the two types?
+            Launch Lifecycle Hook (Pending:Wait)
+            Termination Lifecycle Hook (Terminating:Wait)
+
+        4. Does a Lifecycle Hook stop scaling forever?
+            No. It pauses the instance only until:
+            You call CompleteLifecycleAction, or
+            The heartbeat timeout expires (or the maximum allowed wait time is reached).
+
+14)What is a Heartbeat?
+    A heartbeat is simply a message sent to the Auto Scaling Group saying:
+    "I'm still working. Don't continue yet."
+    Think of it like asking for more time.
+
+    Without Heartbeat:
+        Suppose you configured:
+        Lifecycle Hook Timeout = 300 seconds (5 minutes)
+        and asg launches ec2 and it was taking more time, then in that case, but asg will wait only for 5 Min
+        ASG assumes your work is finished (or has failed) and moves the instance forward based on the hook's 
+        configured result (for example, it may continue the launch or abandon it).
+
+    With Heartbeat:
+        Instead, every few minutes your automation sends Heartbeat
+        This tells ASG: "I'm still busy. Please keep waiting."
+        Now the instance enters service only after it is fully ready.
+
+    Heartbeat = "⏳ Please wait, I'm still working."
+    CompleteLifecycleAction = "✅ I'm done. You can continue now."
+
+
 Scenario 1: One EC2 becomes unhealthy
     ASG detects the unhealthy instance (through EC2 or ELB health checks), 
     terminates it, and launches a replacement to maintain the desired capacity.
