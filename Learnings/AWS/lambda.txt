@@ -1,0 +1,718 @@
+1)What is Lambda?
+    AWS Lambda is a serverless compute service that allows you to run code without provisioning or managing servers.
+
+    You simply:
+        Write your code
+        Upload it
+        Configure a trigger
+        Lambda automatically executes it
+
+    AWS manages:
+        Servers
+        OS
+        Scaling
+        High Availability
+        Patching
+        Capacity Planning
+
+    You only focus on your code.
+
+2) Why Lambda?
+    Instead of
+    EC2
+    ↓
+    24 hours running
+
+    Use
+    Lambda
+    ↓
+    Runs only when needed
+
+    Huge cost savings.
+
+    Benefits:
+        ✅ No servers
+        ✅ Auto Scaling
+        ✅ Highly Available
+        ✅ Pay per execution
+        ✅ Event Driven
+
+    Supported Languages:
+        Lambda supports many runtimes.
+        Examples:
+            Python
+            Java
+            Node.js
+            .NET
+            Go
+            Ruby
+            Custom Runtime
+
+        def lambda_handler(event, context):
+            return "Hello World"
+
+3)How Lambda Works
+    User uploads code
+            │
+            ▼
+    AWS stores function
+            │
+    Trigger happens
+            │
+    Lambda starts execution
+            │
+    Returns response
+            │
+    Execution ends
+
+4)What is a Lambda Function?
+    A Lambda Function is simply your code packaged as a deployable unit.
+    Example:
+        Create User
+        Delete User
+        Send Email
+        Resize Image
+        Generate PDF
+
+    Each can be a separate Lambda function.
+
+5)Event Driven
+    Lambda doesn't run continuously. It waits for an event.
+    
+    Example events:
+        S3 Upload
+        CloudWatch Alarm
+        SNS
+        SQS
+        API Gateway
+        DynamoDB
+        EventBridge
+        CodePipeline
+
+        Something happens...
+        ↓
+        Lambda executes.
+    That's why it was called event Driven.
+
+    Common Lambda Triggers, Lambda supports many AWS services.
+    | Service        | Trigger         |
+    | -------------- | --------------- |
+    | S3             | File uploaded   |
+    | API Gateway    | REST API call   |
+    | EventBridge    | Scheduled event |
+    | SNS            | Notification    |
+    | SQS            | Queue message   |
+    | DynamoDB       | Stream record   |
+    | Kinesis        | Stream event    |
+    | CloudWatch     | Alarm/Event     |
+    | Cognito        | User login      |
+    | Step Functions | Workflow        |
+
+6)Lambda Pricing
+    You pay for: Number of requests, Execution duration (milliseconds), Memory allocated
+    No charge when idle.
+
+    Example:
+        Lambda executed
+        1000 times
+
+        Each execution
+        500 ms
+
+        You only pay for:
+        1000 × 500 ms
+
+    Not for 24-hour server uptime.
+
+    Maximum Execution Time:
+        Lambda cannot run forever.
+        Minimum: 3 seconds
+        Maximum timeout: 15 minutes (900 seconds)
+        If your process needs: 30 minutes, 2 hours, Continuous execution. Use EC2,ECS,EKS,AWS Batch instead.
+
+    Memory:
+        Configurable: 128 MB → 10,240 MB (10 GB)
+        Increasing memory also increases: CPU allocation, Network throughput
+        Sometimes increasing memory reduces total execution time enough that overall cost stays the same or even decreases.
+
+    Temporary Storage:
+        Each Lambda execution environment provides temporary storage in the /tmp directory.
+
+        Configurable: from 512 MB up to 10 GB
+        Data is temporary: It may be reused by subsequent invocations on the same warm execution environment, 
+        but you must not rely on it for persistent storage
+
+        Use cases:
+            Unzipping files
+            Temporary image processing
+            PDF generation
+            Intermediate data during execution
+
+        Stateless Nature
+            Lambda is stateless. Each invocation should assume it starts fresh.
+            Do not store important data in:
+                Memory
+                /tmp
+
+            Store persistent data in services like: S3, DynamoDB, RDS
+
+7)Lambda function execution and runtime
+
+    First, where does a Lambda function execute?
+        When Lambda is invoked, AWS creates an execution environment (think of it as a lightweight container managed by AWS).
+
+        Inside that execution environment, your Lambda gets:
+        CPU
+        Memory (RAM)
+        Temporary disk (/tmp)
+        Runtime (Python, Java, Node.js, etc.)
+
+        You don't see or manage this server.
+
+        Lambda Execution Environment
+        +--------------------------------------+
+        | Runtime (Python/Java)                |
+        |                                      |
+        | RAM (Memory)                         |
+        |                                      |
+        | /tmp (Temporary Disk)                |
+        |                                      |
+        | Your Code                            |
+        +--------------------------------------+
+
+    What is /tmp in AWS Lambda?
+        /tmp is temporary local disk storage (512 MB to 10 GB) available to a Lambda execution environment. 
+        It is used for temporary files such as downloaded S3 objects, image processing, ZIP extraction, or PDF generation. 
+        Unlike memory (RAM), /tmp may persist across warm invocations of the same execution environment, but it should never 
+        be used for permanent data because AWS can remove the execution environment at any time.
+
+    Does Lambda always keep a server running?
+        A new execution environment is created when needed (cold start), and AWS may reuse 
+        an existing one for later requests (warm start). You don't pay for idle execution environments.
+
+    Can Lambda replace EC2?
+        No.
+        Use Lambda for:
+            Event-driven processing
+            APIs
+            Automation
+            Short-lived tasks
+            Scheduled jobs
+
+        Use EC2 when you need:
+            Long-running applications
+            Full OS control
+            Custom software
+            Persistent processes
+            Applications running longer than 15 minutes
+
+    What are the biggest advantages of Lambda?
+        No server management
+        Automatic scaling
+        Pay only for execution
+        High availability managed by AWS
+        Easy integration with many AWS services
+        Fast deployment for event-driven workloads
+
+8)Where is Lambda code stored?
+    Lambda code can be deployed either as a ZIP package or as a container image. 
+    If it's a ZIP package, AWS stores and manages it internally. 
+    If it's a container image, the image is stored in Amazon ECR, and Lambda pulls it when needed. 
+    In both cases, the underlying storage and servers are fully managed by AWS, and users do not have direct access to them.
+
+
+9)AWS Lambda Scaling
+    Lambda automatically scales based on the number of incoming requests. 
+    Unlike EC2, you don't create or manage servers or Auto Scaling Groups.
+
+    How it works
+        One invocation = One execution environment
+
+    If 1 request arrives → Lambda creates (or reuses) 1 execution environment.
+    If 100 requests arrive simultaneously → Lambda can create around 100 execution environments (subject to concurrency limits).
+
+    1 Request     --> 1 Lambda instance
+    10 Requests   --> 10 Lambda instances
+    1000 Requests --> 1000 Lambda instances
+
+    Automatic Scaling
+        No manual scaling required.
+        Lambda automatically:
+        Starts new execution environments.
+        Runs requests in parallel.
+        Removes idle environments after some time.
+
+    Concurrency
+        Concurrency is the number of Lambda executions running at the same time.
+
+    The more accurate AWS terminology is:
+        ✅ 1 Lambda function (your code)
+        ✅ 10 execution environments (or execution instances) running that function concurrently
+
+    A Lambda function is deployed once, but AWS creates multiple execution environments to run it concurrently. 
+    If 10 requests arrive simultaneously, AWS may create up to 10 execution environments, each executing the same 
+    function code with a different event payload. Once executions complete, AWS can reuse those warm execution environments 
+    for subsequent requests, reducing cold starts.
+
+    There are three concurrency-related values
+    1. Default Account Concurrency Limit
+        This is the maximum number of Lambda executions that can run at the same time in an AWS Region.
+
+        Default: 1,000 concurrent executions per Region (for most new AWS accounts).
+        It is a soft limit and can be increased by requesting a quota increase.
+
+        Example:
+            Account Concurrency Limit = 1000
+
+            Function A = 400 concurrent executions
+            Function B = 300 concurrent executions
+            Function C = 300 concurrent executions
+
+            Total = 1000 ✅
+
+            If another request arrives:
+            Total would become = 1001
+            Result → Throttled
+
+    2. Reserved Concurrency
+        This is the minimum concurrency guaranteed for a specific Lambda function.
+
+        Example:
+            Account Limit = 1000
+
+            Function A
+            Reserved Concurrency = 200
+
+            Function B
+            Uses remaining = 800
+
+            Even if other functions consume all available concurrency:
+            Function A can always use up to 200 concurrent executions.
+            Reserved concurrency also acts as a maximum for that function.
+
+        Example:
+            Reserved = 200
+            250 requests arrive
+
+            200 executed
+            50 throttled
+            So Reserved Concurrency = Guaranteed Minimum + Maximum Cap for that function.
+
+    3. Provisioned Concurrency
+        This has no minimum or maximum execution limit.
+        It simply means:"Keep these many Lambda execution environments already warm."
+
+        Example:
+            Provisioned Concurrency = 50
+            50 warm execution environments
+            If:
+            30 requests arrive
+
+            All 30 use warm environments
+            No cold starts
+
+            If:
+            80 requests arrive
+
+            50 → Warm
+            30 → New execution environments (cold starts)
+
+    Can Lambda scale down to zero?
+        Yes. If there are no incoming requests, Lambda scales down to 0 running execution environments. 
+        When a new request arrives, AWS creates or reuses an execution environment to process it.
+        
+        This ability to automatically scale from 0 to thousands of concurrent executions is one of Lambda's biggest advantages.
+
+
+    Cold Start:
+        If Lambda needs to create a new execution environment:
+        Request
+        ↓
+        Create new environment
+        ↓
+        Load code
+        ↓
+        Execute
+    This additional startup time is called a Cold Start.
+
+    If an existing environment is reused:
+        Request
+        ↓
+        Reuse existing environment
+        ↓
+        Execute immediately
+    This is a Warm Start, which is much faster.
+
+10)Lambda Components
+    Every Lambda has
+        Function Name
+        Runtime
+        Handler
+        Execution Role
+        Memory
+        Timeout
+        Triggers
+        Environment Variables
+
+    Handler: Entry point.
+
+    Execution Role: Lambda itself has NO permissions.
+        It assumes an IAM Role.
+
+        Example:
+            Lambda wants to read S3. Need S3 Read Permission Otherwise Access Denied
+        
+        Can Lambda access S3 without IAM Role?
+            No
+
+11) Lambda Invocation Types
+
+    There are 3 Lambda Invocation Types:
+        Synchronous Invocation (Request-Response)
+        Asynchronous Invocation (Event)
+        Poll-based Invocation (Event Source Mapping)
+
+        1. Synchronous Invocation
+            The caller waits until Lambda finishes execution.
+            Client
+            │ Request
+            ▼
+            Lambda
+            │ Execute
+            ▼
+            Response
+
+            The client immediately receives:
+                Success response
+                Error response
+                Function output
+
+            Example Services
+                API Gateway
+                Application Load Balancer (ALB)
+                Lambda Function URL
+                AWS SDK/CLI (Invoke with RequestResponse)
+
+            Retry?
+                Normally No automatic retries by Lambda. If the Lambda fails, The client/application decides whether to retry.
+
+            Does API Gateway retry Lambda automatically?
+                No. API Gateway returns the error to the client. Any retry logic must be implemented by the client or application.
+
+        2. Asynchronous Invocation
+            The caller does not wait for Lambda to finish.
+                Service
+                │
+                │ Event
+                ▼
+                Lambda Queue
+                │
+                ▼
+                Lambda
+
+            AWS first places the event into an internal queue, then invokes the Lambda.
+            The caller immediately gets an acknowledgment like: Accepted
+            
+            It does not wait for the function's result.
+            Example Services
+                S3
+                SNS
+                EventBridge
+                CloudWatch Events
+
+            Example
+                Upload file
+                Upload Image
+                    │
+                    ▼
+                S3 Bucket
+                    │
+                    ▼
+                Lambda
+
+            The upload completes immediately. The user doesn't wait while Lambda processes the image.
+
+            Retry?
+                Yes. If Lambda fails: AWS automatically retries asynchronous invocations (typically up to 2 additional attempts after the initial failure).
+                S3
+                │
+                ▼
+                Queue
+                │
+                ▼
+                Lambda
+                │
+                Fail
+                │
+                Retry
+                │
+                Retry
+
+            You can also configure:
+                Dead Letter Queue (DLQ)
+                On-failure destination
+                On-success destination
+
+            What happens if an S3-triggered Lambda fails?
+                The event is queued, Lambda retries automatically, and if it still fails, 
+                you can send the event to a DLQ or a failure destination for later investigation.
+
+        3. Poll-based Invocation
+            Lambda itself polls the event source.
+                SQS Queue
+                    ▲
+                    │ Poll
+                Lambda
+
+            Unlike asynchronous invocation, the source service does not push events to Lambda.
+            Lambda continuously checks (polls) the queue or stream for new records.
+
+            Example Services
+                SQS
+                Kinesis Data Streams
+                DynamoDB Streams
+                Amazon MQ
+                Apache Kafka (MSK or self-managed)
+
+            Example
+                Application
+                    │
+                    ▼
+                SQS Queue
+                    ▲
+                    │ Polling
+                Lambda
+
+                When Lambda finds messages, it processes them.
+
+            Retry?
+                The message stays in the queue (or becomes visible again after the visibility timeout).
+                Lambda will receive it again later.
+
+            Poll-based means Lambda is continuously running. Doesn't that increase cost?"
+                "No. Lambda itself is not continuously running. AWS manages the polling infrastructure for services like SQS, Kinesis, 
+                and DynamoDB Streams. The Lambda function is invoked only when records are available. Billing starts when the function 
+                begins execution and stops when it completes. The background polling performed by AWS is not billed as Lambda execution time."
+            
+12)Dead Letter Queue (DLQ)
+    A DLQ stores events that Lambda could not process successfully, even after all retry attempts.
+    Supported DLQ targets: SQS Queue, SNS Topic
+
+    Flow
+    S3
+    │
+    ▼
+    Lambda
+    │
+    Fails
+    │
+    Retry
+    │
+    Retry
+    │
+    Still fails
+    ▼
+    Dead Letter Queue (SQS/SNS)
+
+    Now the failed event is safely stored instead of being lost.
+
+    Example
+        Suppose:
+
+        S3 uploads a file.
+        Lambda resizes the image.
+        The code has a bug.
+
+        Lambda retries automatically. Still fails.
+        The original event is sent to the DLQ.
+        Later, a developer can inspect the failed event and fix the issue.
+
+13)On-Failure destination
+    This is a newer and more flexible feature than DLQ.
+    Instead of only sending the original event, 
+    Lambda sends execution details as well.
+
+    Supported destinations:
+        SQS
+        SNS
+        EventBridge
+        Another Lambda
+
+    The destination receives information such as:
+        Original event
+        Error message
+        Stack trace/exception details (where applicable)
+        Request ID
+        Timestamp
+        Response context
+
+        This makes debugging much easier.
+
+14)On-Success Destination
+    Runs only if Lambda completes successfully.
+    
+    Supported destinations:
+        EventBridge
+        SNS
+        SQS
+        Another Lambda
+
+    Scenario 1 – DLQ
+        Use when you simply want to store failed events for later investigation or reprocessing.
+    Scenario 2 – On-Failure
+        Use when you need automated alerting, logging, or triggering other workflows after a failure.
+    Scenario 3 – On-Success
+        Use when another action should happen only after successful completion.
+
+15)AWS Lambda Layers
+    Lambda Layers are a way to share common code, libraries, custom runtimes, 
+    or dependencies across multiple Lambda functions.
+
+    Instead of packaging the same dependencies with every function, 
+    you package them once in a Layer and attach that layer to one or more
+    Lambda functions.
+
+    Why were Lambda Layers introduced?
+        Imagine you have 20 Lambda functions.
+            Order Lambda
+            Payment Lambda
+            User Lambda
+
+        Every Lambda needs:
+            boto3 extensions
+            requests
+            numpy
+            common utility code
+            logging framework
+    
+    Without Layers, Every deployment package contains the same dependencies.
+
+    Solution: Lambda Layers
+        Create the common dependencies once.
+        Common Layer
+        ├── requests
+        ├── numpy
+        ├── utils
+        └── logging
+
+        Now every Lambda only contains business logic.
+
+        Order Lambda
+        └── app.py
+
+        Payment Lambda
+        └── app.py
+
+        At runtime AWS combines them.
+            Runtime
+            Order Lambda Code
+                    +
+            Lambda Layer
+                    =
+            Execution Environment
+
+    What can a Layer contain?
+        Almost anything that multiple functions need.
+        Python libraries
+        requests
+        numpy
+        pandas
+        boto3 extensions
+
+    Maximum Layers
+        A Lambda function can attach up to 5 layers.
+        Layers are immutable.
+
+    Layers are read-only
+    Lambda cannot modify them during execution.
+    Every change creates a new version.
+    Layers are mounted under /opt (for Python, libraries are typically under /opt/python).
+
+
+16)Layer vs Container Image
+    | Lambda Layer               | Container Image                                    |
+    | -------------------------- | -------------------------------------------------- |
+    | Share dependencies         | Package everything together                        |
+    | Max 5 layers               | Single image                                       |
+    | Smaller function ZIP       | Larger image                                       |
+    | Great for common libraries | Great for complex applications                     |
+    | Easy to reuse              | Better for heavy frameworks or native dependencies |
+
+
+    Questions:
+        "We have 100 Lambda functions using the same logging library. What would you do?"
+            I'd package the logging framework into a Lambda Layer and attach it to all functions. 
+            This removes duplication, reduces deployment package size, and centralizes maintenance."
+
+        We updated a shared utility. Will all Lambdas automatically use it?"
+            No. Lambda Layers are versioned and immutable. Updating the layer creates a new version. 
+            Existing functions continue using the old version until they are explicitly updated to 
+            reference the new one."
+
+        Can one Lambda use multiple layers?
+            Yes. A Lambda function can attach up to 5 layers. 
+            For example, one for logging, one for monitoring, one for database utilities, one for security libraries, and one for shared business utilities.
+
+        Lambda Layer Size Limits
+           1. Compressed (ZIP) size
+                When you upload a Lambda Layer as a ZIP file:
+                Maximum compressed size: 50 MB (when uploading directly through the Lambda API or console).
+
+                If your ZIP is larger than 50 MB, upload it to Amazon S3 first, and then create the layer from S3. 
+
+            2. Uncompressed size
+                    After AWS extracts the layer:
+                    Maximum uncompressed size: 250 MB
+                    This is the actual size of the layer contents after extraction.
+
+            Total Limit (Function + Layers)
+            The combined uncompressed size of Your Lambda function code
+            All attached layers, cannot exceed 250 MB.
+
+        Can I attach five 250 MB layers?
+            No. Although you can attach up to 5 layers, the combined uncompressed 
+            size of the function code plus all layers must not exceed 250 MB.
+
+        What if my dependencies are larger than 250 MB?
+            Use a Lambda Container Image instead.
+            Container images support up to 10 GB.
+            
+            This is commonly used for:
+            TensorFlow
+            PyTorch
+            Large ML models
+            OpenCV
+            Other large native libraries
+
+        What happens if two Layers contain the same file?
+            Layer A
+            python/utils.py
+
+            Layer B
+            python/utils.py
+
+            Which one wins?
+                AWS mounts layers in the order you specify.
+                If the same path exists in multiple layers, the later layer 
+                overrides the earlier one.
+
+        Is boto3 stored in a Layer?
+            AWS already includes boto3 and botocore in the Python runtime.
+            import boto3 works even without your own Layer.
+        
+        Can I share Layers across AWS Accounts?
+            Yes. A Layer can be shared using a resource-based policy.
+
+        Can a Layer access Lambda Environment Variables?
+            Yes. The layer code executes within the Lambda execution environment.
+            This works because the environment variables belong to the Lambda execution environment.
+
+        What happens if the Layer is deleted?
+            If a Lambda is already configured to use a specific layer version:
+
+            Existing functions continue to reference that published version.
+            You won't be able to attach a deleted version to new functions.
+            Deleting or removing permissions on a layer can break future deployments or updates that reference it.
+
+            The safe practice is to publish new versions and migrate functions gradually rather than deleting versions that are still in use.
+        
