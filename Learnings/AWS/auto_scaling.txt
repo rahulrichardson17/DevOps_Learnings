@@ -1,0 +1,246 @@
+1)AutoScaling
+    Auto Scaling automatically adds or removes EC2 instances based on demand.
+    Instead of manually launching servers, AWS does it for you.
+
+    Benefits:
+        High Availability
+        Cost Optimization
+        Fault Tolerance
+        Automatic Recovery
+
+    Components of Auto Scaling
+            CloudWatch
+                |
+            CPU / Memory / ALB
+                    |
+                    v
+            Scaling Policy
+                    |
+                    v
+        Auto Scaling Group (ASG)
+                    |
+        -------------------------
+        |          |           |
+    EC2        EC2         EC2
+
+    CloudWatch monitors → ASG decides → EC2 launches or terminates.
+
+2)Auto Scaling Group (ASG)
+    An ASG is a logical group of EC2 instances managed together.
+
+    Example: ASG
+        Desired = 2
+            EC2-1, EC2-2
+        If one fails:
+            EC2-1, EC2-2 (Unhealthy)
+                ↓
+            ASG Terminates
+                ↓
+            Launches EC2-3
+        ASG always tries to maintain the desired capacity.
+
+3)Desired Capacity
+    This is the number of instances ASG wants to keep running.
+    Example: Desired = 3
+
+        AWS ensures: EC2,EC2,EC2
+        If one dies: Launch new EC2
+        Again: 3 running
+
+4)Minimum Capacity
+    Lowest number of instances.
+        Example:
+        Min = 2
+        Desired = 4
+        Max = 10
+
+    Traffic drops:
+        AWS removes instances.
+    Stops at:
+        2 EC2
+        Never below minimum.
+
+5)Maximum Capacity
+    Maximum number ASG can launch.
+    Example:
+        Min = 2
+        Desired = 4
+        Max = 10
+
+        Huge traffic arrives.
+
+    Why set Max?
+        To avoid unexpected costs and prevent unlimited instance launches due
+        to faulty metrics or application bugs.
+
+    If Desired Capacity is 4, why do we need Min Capacity?
+        Desired Capacity is the current target number of instances, 
+        but it can change because of scaling policies, scheduled actions, 
+        or manual updates. Min Capacity defines the lower safety limit, 
+        ensuring the Auto Scaling Group never scales below a certain number
+        of instances, even if demand drops. This helps maintain application availability.
+    
+6)Health Checks
+    ASG constantly checks instance health.
+
+    Two types:
+        EC2 Health Check:
+            Checks if the EC2 instance is running.
+        ELB Health Check:
+            Checks if the application is actually responding.
+
+        ELB health checks are generally preferred because they validate 
+        application availability, not just instance status.
+
+        The key is that they check different things.
+            | EC2 Health Check                                                       | ELB Health Check                                                                                              |
+            | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+            | Checks whether the EC2 instance is healthy at the infrastructure level | Checks whether the application on the EC2 instance is healthy                                                 |
+            | Done by AWS                                                            | Done by the Load Balancer                                                                                     |
+            | Verifies instance state and system status                              | Sends HTTP/HTTPS/TCP requests to your application                                                             |
+            | Doesn't know if your application has crashed                           | Knows if your application is responding                                                                       |
+            | Used to replace failed EC2 instances                                   | Used to stop sending traffic to unhealthy instances and optionally replace them if ASG uses ELB health checks |
+
+        EC2 Health Check = "Is the server alive?"
+        ELB Health Check = "Is the application serving requests?"
+
+    Application crashed. EC2 still running. Will ASG replace it?
+        Yes, if the ASG uses ELB/target group health checks and 
+        the application fails those health checks. 
+        
+        If only EC2 health checks are enabled, ASG sees the instance as healthy 
+        and won't replace it.
+
+7)Launch Template
+    ASG needs to know how to launch new instances.
+
+    Launch Template contains:
+        AMI
+        Instance Type
+        Security Group
+        IAM Role
+        Key Pair
+        User Data
+        EBS Configuration
+    Whenever ASG launches an EC2, it uses this template.
+
+8)Scaling Policies
+    This is the brain of Auto Scaling.
+    Different policy types:
+
+        Target Tracking:
+            ex: Target CPU = 50%
+            ASG keeps tracking CPU around 50%. If it reaches more then 
+            AWS automatically decides how many instances are needed.
+            This is the recommended policy in most cases.
+
+        Step Scaling:
+            Example:
+                CPU > 60%
+                +1 Instance
+
+                CPU > 75%
+                +2 Instances
+
+                CPU > 90%
+                +4 Instances
+
+                Good for handling sudden spikes.
+
+        Simple Scaling (older)
+        Scheduled Scaling:
+            Traffic pattern is predictable.
+            Example:
+                Every Monday 9 AM
+                Launch: 10 EC2
+                11 PM Reduce to 2 EC2
+
+                Ideal for:
+                    Office hours
+                    Sales events
+                    Batch jobs
+
+        Predictive Scaling:
+            AWS analyzes historical traffic.
+            Example:
+                Every Friday evening traffic increases.
+                AWS learns this pattern and launches instances before traffic increases.
+    
+9)Cooldown Period
+    Problem: CPU reaches 80%.
+        ASG launches an instance.New instance needs 2–3 minutes to become healthy.
+        Without cooldown: CPU still high. ASG launches more. This causes over-scaling.
+    Cooldown allows the new capacity time to affect the metrics before taking another scaling action.
+
+
+10)Instance Refresh
+    Rolling replacement with a new AMI/template
+    Scenario: New application version.
+        New AMI. Need to replace all EC2s.
+        Old:
+            AMI v1
+            EC2
+            EC2
+            EC2
+
+        Start Instance Refresh:
+            Terminate one
+            ↓
+            Launch v2
+            ↓
+            Healthy
+            ↓
+            Next Instance
+
+        Eventually:
+            AMI v2
+            EC2
+            EC2
+            EC2
+            No full downtime because replacements happen gradually.
+
+11)Warm Pools
+    Launching a new EC2 can take several minutes.
+    Warm Pool keeps pre-initialized instances ready.
+
+    With Warm Pool:
+        Traffic Spike
+        ↓
+        Warm Instance
+        ↓
+        Start
+        ↓
+        Ready
+
+        30–60 seconds
+        Useful for applications with long startup times.
+
+12)Scale-In Protection
+    Sometimes you don't want certain instances terminated.
+    Enable Scale-In Protection.
+    ASG won't terminate those instances during scale-in.
+
+    Common use case:
+        Long-running batch jobs
+        Critical processing
+
+Scenario 1: One EC2 becomes unhealthy
+    ASG detects the unhealthy instance (through EC2 or ELB health checks), 
+    terminates it, and launches a replacement to maintain the desired capacity.
+
+Scenario 2: CPU suddenly spikes to 95%
+    CloudWatch metrics trigger the scaling policy, ASG launches new instances
+    using the Launch Template, they pass health checks, are registered with 
+    the load balancer, and begin serving traffic.
+
+Scenario 3: New AMI needs deployment
+    Update the Launch Template to the new AMI version and perform an 
+    Instance Refresh so existing instances are gradually replaced.
+
+Scenario 4: Traffic increases every day at 9 AM
+    Configure Scheduled Scaling to increase capacity before 9 AM 
+    and reduce it after peak hours.
+
+Scenario 5: Application startup takes 5 minutes
+    Use a Warm Pool so pre-initialized instances are available quickly 
+    during scale-out events.
