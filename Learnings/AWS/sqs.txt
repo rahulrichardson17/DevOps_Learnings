@@ -275,3 +275,12 @@
         Higher efficiency
 
     Batch Operations allow multiple messages to be sent, received, or deleted in a single API request.
+
+10)questions
+
+    If 10,000 messages suddenly arrive in SQS, will AWS immediately create 10,000 Lambda functions?"
+        No. SQS only stores the messages. 
+        Lambda's Event Source Mapping polls the queue 
+        and gradually increases the number of concurrent Lambda 
+        executions based on the backlog, batch size, processing speed, and configured concurrency limits. 
+        The scaling continues until the queue is drained or a limit is reached.
