@@ -542,41 +542,673 @@
             id = "vpc-123456"
         }
 
+    How Data Sources Work
+        Terraform Apply
+            |
+        Read Existing AWS Resource
+            |
+        Store Attributes
+            |
+        Use Those Attributes
+            |
+        Create New Resources
+
+    Are Data Sources stored in the state file?
+        Terraform stores the fetched attribute values in the state so other 
+        resources can reference them. However, Terraform does not manage the lifecycle of those external resources.
+
+    Can Data Sources depend on Resources?
+        Terraform builds the dependency graph and reads the data source after the VPC exists.
+
+    Does a Data Source make API calls?
+        yes, data "aws_ami" "latest"
+        Terraform queries AWS (for example, the EC2 API) to retrieve the matching AMI.
+    
+    Why use aws_ami Data Source instead of hardcoding the AMI?
+        Because:
+            AMIs change frequently.
+            Avoids outdated image IDs.
+            Ensures deployments use the latest approved image.
+            Reduces manual maintenance.
+
+    What happens if a Data Source cannot find a resource?
+        Terraform fails during the planning phase with an error indicating that no matching resource was found.
+
+    What is the difference between aws_subnet and aws_subnets?
+        Returns a single subnet.
+
+        data "aws_subnet" "private" {
+            id = "subnet-123"
+        }
+
+        Returns multiple subnet IDs matching filters.
+           data "aws_subnets" "private" {
+                filter {
+                    name = "vpc-id"
+                    values = ["vpc-123"]
+                }
+            } 
+
+    Your organization has one Terraform project for networking and another for application deployment. 
+    Which approach would you use: Data Sources or Remote State?
+        
+        It depends on how the infrastructure is managed:
+            Use Data Sources when the infrastructure already exists in AWS 
+            and can be identified by IDs, names, or tags (for example, an existing VPC or IAM role).
+
+            Use terraform_remote_state when another Terraform project 
+            owns the infrastructure and intentionally exposes values through outputs.
+
+        Example:
+            Existing manually created VPC → data "aws_vpc"...
+            VPC created by another Terraform project → terraform_remote_state to consume its outputs.
+
+10)Terraform State
+
+    Why does Terraform need a state file?
+        Terraform State is a file that stores the current mapping 
+        between your Terraform configuration and the real infrastructure.
+
+        Think of it as Terraform's database.
+
+        It tells Terraform:
+            What resources exist
+            Which resources Terraform manages
+            Their IDs
+            Their attributes
+            Dependencies
+            Outputs
+            Metadata
+        Default file: terraform.tfstate
+
+    Why Terraform Needs State
+        Imagine you create an EC2 instance. Next time you run Terraform, how does it know this EC2 already exists?
+        Because it reads the state file. Thats why it was so important.
+
+        Without state, It would have to recreate everything.
+
+        Terraform Configuration (.tf)
+            |
+        Read State File
+            |
+        Compare with AWS
+            |
+        Generate Execution Plan
+            |
+        Apply Changes
+            |
+        Update State File
+
+    What Does State Store?
+        Terraform State stores things like:
+            Resource Name: aws_instance.web
+            Resource ID: i-123456
+            Public IP: 54.xx.xx.xx
+            Private IP: 10.0.1.10
+            Availability Zone: us-east-1a
+            Tags
+            Metadata
+            Dependencies
+        It does not just store your .tf code. It stores real infrastructure information.
+    
+    It always, Compares desired with current state.
+    
+    State Refresh:
+        Suppose someone manually changes the EC2 in AWS, their will be a difference
+        in the config and aws infra, Terraform State is now outdated.
+
+        When you run: terraform plan
+            Terraform refreshes resource information from the provider 
+            (unless refresh is disabled), updates its in-memory view, compares it with the configuration, 
+            and proposes changes. If the configuration still says t3.micro, the plan will typically propose 
+            changing the instance back to t3.micro.
+
+    
+    If someone manually changes an EC2 instance from t3.micro to t3.large, will terraform plan detect it?
+        Yes. By default, terraform plan performs a refresh by querying the provider 
+        for the current state of the infrastructure. It detects that the actual EC2 instance is t3.large while
+        the configuration specifies t3.micro, reports the drift in the execution plan, 
+        and proposes changing it back to t3.micro during terraform apply.
+
+    State Refresh = The process of updating Terraform's knowledge of the real infrastructure.
+    Drift Detection = The result of comparing the refreshed state with your Terraform configuration.
+
+    Refresh happens first. Drift detection happens because of the refresh.
+
+    Step 1: State Refresh
+        When you run: terraform plan
+        Terraform calls the AWS API.
+        AWS says: Current instance type = t3.large
+        Terraform refreshes its internal state to match AWS.
+        This step is State Refresh.
+
+    Step 2: Drift Detection
+        Now Terraform compares:
+        Desired (Code):  t3.micro
+        Actual (AWS):   t3.large
+        Difference found. This difference is called Drift.
+
+    Can drift detection happen without refresh?
+        Practically, no. Terraform must first know the current infrastructure before it can compare it 
+        with your configuration.
+
+11) Local State & Remote State
+    Local State:
+        terraform.tfstate stored locally. Only one person has it.
+    Remote State:
+        Enterprise companies rarely use local state. They use s3 in aws
+    
+    S3 Backend Example:
+        terraform {
+            backend "s3" {
+                bucket = "company-terraform-state"
+                key = "prod/network/terraform.tfstate"
+                region = "us-east-1"
+                dynamodb_table = "terraform-locks"
+            }
+        }
+        Now state file is stored in the s3 bucket.
+    
+    Why Remote State?
+        to avoid difference b/w infra when multiple teams were working, chances od changes might be drift.
+
+        Remote state provides:
+            Single source of truth
+            Team collaboration
+            Backup
+            Versioning
+            Locking
+            Security
+
+12)State Locking
+    both developers working on the same code and they push the code and to maintain
+    same infra we use, remote state to overcome that, now here if one developer push the 
+    code and changes are applying, and same time other developer also have pushed the code
+    in that case state Locking gets applied and and once changes were applied then locks get released
+    and other user changes gets applied.
+
+    For Locking we use dynamodb_table
+
+    State Versioning
+        Enable S3 Versioning.
+        Benefits:
+            Recover deleted state
+            Recover corrupted state
+            Audit history
+            Rollback if needed
+
+    Sensitive Data in State
+        Even if you write,sensitive = true State file still contains values
+        
+        Therefore:
+            Encrypt S3 bucket
+            Restrict IAM permissions
+            Never commit terraform.tfstate to Git
+            Use secure remote backends
+
+    1. Show State
+        terraform show
+        Displays the human-readable contents of the current state.
+
+    2. List Resources
+        terraform state list
+    
+    3. Show One Resource
+        terraform state show aws_instance.web
+
+    4. Remove Resource from State
+        terraform state rm aws_instance.web
+
+        Removes only from Terraform state.
+        AWS resource still exists.
+        Terraform no longer manages it.
+    
+    What happens if the state file is deleted?
+        If no backup exists:
+            Infrastructure still exists.
+            Terraform loses tracking information.
+            You may need to import existing resources or restore the state 
+            from a backup/versioned backend.
+    
+    Is the state file updated after every apply?
+        Yes.After successful changes, Terraform updates the state.
+    
+    Is the state file encrypted?
+        Local state: No.
+        Remote S3: Only if encryption is enabled (for example, SSE-S3 or SSE-KMS).
+
+    Why shouldn't we store the state in Git?
+        Because it may contain:
+            Passwords
+            Private IPs
+            Resource IDs
+            Secrets
+            Infrastructure metadata
+        Use a secure remote backend instead.
+    
+    Why use S3 with DynamoDB?
+        S3: Stores the state.
+        DynamoDB: Provides state locking to prevent concurrent modifications.
+    
+    What is state locking?
+        A mechanism that prevents multiple Terraform operations from modifying 
+        the same state at the same time.
+
+    What happens if two users run terraform apply simultaneously without locking?
+        They can overwrite each other's state updates, leading to inconsistent or corrupted 
+        state and unpredictable infrastructure changes.
+
+    What is state drift?
+        State drift occurs when infrastructure is changed outside Terraform 
+        (for example, through the AWS Console or CLI), causing the actual infrastructure 
+        to differ from the Terraform configuration and/or recorded state.
+
+    How do you recover from a corrupted state file?
+        Possible approaches:
+            Restore a previous version from S3 versioning or backups.
+            Re-import resources using terraform import.
+            Repair state carefully using terraform state commands.
+
+    Can Terraform work without a state file?
+        Terraform relies on state to track managed infrastructure.
+        read-only operations (such as terraform validate) that don't require state.
+    
+    What is the difference between Backend and Remote Backend?
+        Backend is the mechanism Terraform uses to store and manage its state.
+        Local backend stores the state file on the local machine (default).
+        Remote backend stores the state in a shared remote location like S3, 
+        Azure Blob Storage, GCS, or Terraform Cloud, enabling collaboration and centralized state management.
 
 
+13)Modules
+    A Terraform module is a container for Terraform resources that can be reused.
+    Instead of writing the same EC2 configuration multiple times, write it once as a module and reuse it.
 
-Terraform State
+    Same blueprint reused. Terraform modules work exactly the same way.
 
-Remote State
+    Every Terraform Configuration is a Module
+    Even this:
+        main.tf
+        variables.tf
+        outputs.tf
+    is a module. Terraform calls it the Root Module
 
-State Locking
+    Types of Modules
+        1. Root Module
+            The directory where you run
+        2. Child Module
+            Called from another module.
+            Root module calls EC2 module.
+        
+    Module Sources
+        Terraform modules can come from different locations.
+        Local Module
+            module "ec2" {
+            source="./modules/ec2"
+        }
+        Most common while developing.
 
-Backend
+        GitHub Module
+        module "vpc" {
+            source="git::https://github.com/company/vpc-module.git"
+        }
+        Used in enterprises.
 
-Modules
+        Versioned Git Tag
+        module "vpc" {
+            source="git::https://github.com/company/vpc-module.git?ref=v1.2.0"
+        }
+        Always pin versions.
 
-Dependency Graph
+        Terraform Registry
+        module "vpc" {
+            source="terraform-aws-modules/vpc/aws"
+            version="5.0.0"
+        }
+        Popular open-source modules.
 
-Expressions
+    Can Modules have Providers?
+        Yes. Modules inherit provider configurations from the root module by default, 
+        but you can also explicitly pass provider configurations or use multiple provider 
+        aliases when needed.
 
-Meta Arguments
+    Can child modules directly access variables from the parent module?
+        No. Variables must be explicitly passed to child modules as inputs.
+    
+    Can parent modules directly access resources inside child modules?
+        the child module must expose it, Then the parent accesses it.
 
-Lifecycle
+    Your company has 50 applications. How would you avoid duplicating Terraform code?
+        Create reusable modules for common infra
+        Each application reuses these modules by supplying different input variables (for example, environment, instance type, CIDR ranges, and tags), reducing duplication and ensuring consistent infrastructure standards.
 
-Workspaces
+14)Dependency Graph
+    A Dependency Graph is an internal graph built by Terraform that determines:
+        Which resources depend on others
+        The correct order of creation
+        Which resources can be created in parallel
+        Which resources must wait
+    Think of it as Terraform's execution plan.
 
-Provisioners
+    Why Do We Need a Dependency Graph?
+        Imagine creating an EC2 instance.
+        To create EC2, AWS needs:
+            VPC
+            Subnet
+            Security Group
+        The Dependency Graph determines this order automatically.
 
-Import
+    How Terraform Builds the Graph
+        Terraform reads:
+            Resources
+            Variables
+            Data Sources
+            Outputs
+            Modules
+            References
 
-Taint / Replace
+    Implicit Dependency
+        Terraform automatically detects dependencies when one resource 
+        references another.No need to write anything extra.
 
-Drift Detection
+    Explicit Dependency (depends_on)
+        Sometimes there is no direct reference, but a dependency 
+        still exists.
 
-Terraform Cloud / Enterprise
+        resource "aws_instance" "web" {
+            ami = "ami-123"
+            instance_type = "t3.micro"
+            depends_on = [aws_iam_role_policy_attachment.policy]
+        }
 
-Secrets Management
+        | Implicit                 | Explicit                |
+        | ------------------------ | ----------------------- |
+        | Automatically detected   | Manually defined        |
+        | Uses resource references | Uses `depends_on`       |
+        | Preferred                | Use only when necessary |
 
+    Destroy Dependency Graph
+        tf uses A Directed Acyclic Graph (DAG).
+        Terraform reverses the dependency order during destroy.
+
+    Circular Dependency
+        Resource A
+        ↓
+        depends on
+        ↓
+        Resource B
+        ↓
+        depends on
+        ↓
+        Resource A
+
+        Terraform cannot decide what to create first.Terraform fails.
+
+    Graph Visualization: terraform graph
+    terraform graph | dot -Tpng > graph.png
+
+    Terraform can build the dependency graph without the state file??
+        Yes,Terraform builds the graph primarily from the configuration and resource references.
+        It also uses the state and provider information to understand existing managed resources 
+        and generate an accurate execution plan.
+
+15)Expressions
+    Terraform evaluates expressions and assigns the resulting value to arguments.
+    Argument = Expression
+
+    Comparison Expressions
+        ==
+        !=
+        >
+        <
+        >=
+        <=
+        
+    Logical Expressions
+        &&
+        ||
+        !
+
+    Conditional Expressions
+        condition ? true_value : false_value
+
+    Function Expressions
+        Terraform has built-in functions.
+        length,upper,
+        join("-",["app","prod"]) app-prod
+        split(",", "a,b,c") ["a","b","c"]
+        lookup(var.tags,"Environment")
+        merge(
+        {
+        Environment="prod"
+        },
+        {
+        Team="DevOps"
+        }
+        )
+
+        {
+         Environment="prod"
+         Team="DevOps"
+        }
+    
+    You have 3 environments: dev, test, prod. Production needs 5 EC2 instances, others need 1. How will you implement this without duplicate code?
+        count = var.environment == "prod" ? 5 : 1
+
+    Splat Expressions
+        Used to extract attributes from multiple resources.
+            aws_instance.web[*].id
+
+    Dynamic Expressions
+        Used to create repeated nested blocks.
+        
+        Without dynamic:
+            ingress {
+
+            from_port=80
+
+            }
+
+            ingress {
+
+            from_port=443
+
+            }
+
+        With dynamic:
+
+        dynamic "ingress" {
+            for_each = var.rules
+            content {
+                from_port = ingress.value
+            }
+        }
+
+16)Meta Arguments
+    Meta-arguments are special arguments supported by Terraform itself 
+    (not by AWS or other providers).
+
+    They control Terraform's behavior, not the cloud resource.
+        count = 3 is not an AWS EC2 property.
+        AWS doesn't know what count means.
+        Terraform reads it and decides to create 3 EC2 instances.
+
+    | Meta-Argument | Purpose                               |
+    | ------------- | ------------------------------------- |
+    | `count`       | Create multiple copies                |
+    | `for_each`    | Create multiple unique resources      |
+    | `depends_on`  | Explicit dependency                   |
+    | `lifecycle`   | Control create/update/delete behavior |
+    | `provider`    | Select a provider configuration       |
+    | `providers`   | Pass providers to modules             |
+
+17)Lifecycle
+
+    Controls how Terraform manages resources.
+    Normally: create_before_destroy
+        Terraform:
+            Destroy
+            ↓
+            Create
+        Can cause downtime.
+
+        Enable:
+            lifecycle {
+                create_before_destroy = true
+            }
+            Create New
+            ↓
+            Switch
+            ↓
+            Destroy Old
+        Zero downtime (where the provider supports having both resources temporarily).
+
+        prevent_destroy
+            Protects resources.
+
+            Example:
+                lifecycle {
+                    prevent_destroy = true
+                }
+
+            If someone runs: terraform destroy
+                Terraform fails.
+            Useful for:
+                Production Database
+                S3 Bucket
+                KMS Key
+    
+    When do we use provider meta-argument?
+        When multiple provider configurations exist (for example, multiple AWS regions or accounts), and a specific resource should use a particular provider.
+
+    Can ignore_changes ignore everything?
+        You can ignore multiple attributes, and Terraform also supports 
+        ignore_changes = all in some situations. However, using all is 
+        rarely recommended because Terraform will stop managing changes 
+        to that resource's attributes, reducing Infrastructure-as-Code control.
+
+    Does depends_on affect destroy order?
+        Yes.Terraform uses the dependency graph for both creation and destruction.
+        Resources are destroyed in the reverse dependency order.
+
+    Your Auto Scaling Group changes desired_capacity automatically 
+    based on CloudWatch alarms. Every terraform plan wants to change it back. 
+    How will you solve this?
+
+    lifecycle {
+        ignore_changes = [
+            desired_capacity
+        ]
+    }
+    This allows Auto Scaling to manage desired_capacity without Terraform continuously trying to revert it.
+
+
+18)Workspaces
+    Terraform Workspaces allow you to use the same Terraform configuration 
+    to manage multiple environments while maintaining separate state files.
+
+    Workspace = Separate state for the same Terraform code
+
+    terraform workspace show
+
+    terraform workspace new dev
+
+    terraform workspace list
+
+    terraform workspace select dev
+
+    terraform.workspace
+
+    locals {
+        environment = terraform.workspace
+    }
+
+    terraform workspace select dev
+    terraform apply -var-file=dev.tfvars
+
+19)Provisioners
+    Provisioners execute scripts or commands on the local machine or 
+    remote resources after creation (or before destruction). 
+    They are intended for bootstrapping or integration tasks 
+    but are generally discouraged in favor of cloud-init, user data, or configuration management tools.
+
+    Difference between local-exec and remote-exec?
+    | local-exec                      | remote-exec                             |
+    | ------------------------------- | --------------------------------------- |
+    | Runs on local machine/CI runner | Runs on the remote resource             |
+    | No SSH required                 | Requires SSH (Linux) or WinRM (Windows) |
+    | Executes local commands         | Executes commands inside the VM         |
+
+    Difference between file and remote-exec?
+    | file                         | remote-exec                  |
+    | ---------------------------- | ---------------------------- |
+    | Copies files                 | Executes commands            |
+    | Needs connection             | Needs connection             |
+    | Doesn't execute copied files | Can execute the copied files |
+
+    Why do most companies avoid Provisioners?
+        They make Terraform imperative, depend on connectivity (SSH/WinRM), 
+        are harder to recover from failures, and are less reliable than user data, cloud-init, Packer, or configuration management tools.
+
+20)Import
+    Terraform Import is used when:
+    A resource already exists in the cloud, but Terraform is not managing it.
+    
+    terraform import aws_instance.web i-0ab12345
+
+    Import does NOT create resources
+    Very important.
+
+    terraform import
+
+    does NOT
+
+    create
+    update
+    destroy
+
+    It only updates the state.
+
+
+21)Taint / Replace
+    terraform taint
+
+    terraform apply -replace=RESOURCE
+
+    Terraform Taint (legacy approach) is used when a resource is unhealthy or you want a fresh one, 
+    even though the configuration hasn't changed. It marks the resource as tainted in the state, 
+    meaning Terraform will destroy and recreate it during the next terraform apply. 
+    It does not recreate the resource immediately.
+
+    Terraform Replace is the modern replacement for taint. It tells Terraform to destroy and 
+    recreate a specific managed resource in the current apply operation, even if there are no 
+    configuration changes. Unlike taint, it does not permanently mark the state first—it simply 
+    performs the replacement as part of that apply.
+
+    terraform apply -replace=aws_instance.web
+
+    | Feature     | Think of it as                                     |
+    | ----------- | -------------------------------------------------- |
+    | **Import**  | **Adopt** an existing resource into Terraform.     |
+    | **Taint**   | **Mark** a resource for recreation later (legacy). |
+    | **Replace** | **Recreate** a resource now (recommended).         |
+
+
+22)Secrets Management
+    Securely storing, accessing, and using sensitive information 
+    (passwords, API keys, tokens, private keys, database credentials, etc.) 
+    without exposing them in Terraform code, state, logs, or version control.
+
+    Examples of secrets:
+        AWS Access Keys
+        Database Passwords
+        SSH Private Keys
+        API Tokens
+        GitHub PAT
+        Kubernetes Secrets
+        SSL Private Keys
+
+    sensitive = true
 
 
 questions:
