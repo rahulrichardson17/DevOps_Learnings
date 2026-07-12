@@ -1,0 +1,287 @@
+1)What is SNS?
+    Amazon SNS is a fully managed pub/sub (Publisher-Subscriber) messaging service.
+    It allows one publisher to send a message to multiple subscribers simultaneously.
+    Think of SNS as a broadcast service.
+
+2)Why SNS?
+    Application
+    ↓
+    SNS Topic
+    ↓
+    Email
+
+    Lambda
+    SQS
+    SMS
+    HTTP
+
+    Application sends one message. SNS delivers it to everyone.
+
+3)Pub/Sub Architecture
+    Publisher
+    ↓
+    SNS Topic
+    ↓
+    Subscribers
+
+4)Components
+    SNS mainly has:
+        Topic
+        Publisher
+        Subscriber
+        Subscription
+        Message
+
+    Topic: A topic is like a WhatsApp group.
+        Example: ProductionAlerts
+        Everyone interested joins this topic.
+
+    Publisher: Anything that sends messages.
+        Examples:
+            Lambda
+            CloudWatch
+            Auto Scaling
+            EC2
+            Application
+            EventBridge
+
+    Subscriber: Receives messages.
+        Examples:
+            Email
+            SMS
+            Lambda
+            SQS
+            HTTP Endpoint
+
+    Supported Subscribers:
+        SNS can send messages to
+            Email
+            SMS
+            Lambda
+            SQS
+            HTTPS
+            Mobile Push
+            EventBridge (via integrations)
+
+    Questions:
+        Can SNS invoke Lambda?
+            Yes.
+        Can SNS send messages to SQS?
+            Yes.
+        Can SNS send emails?
+            Yes.
+
+5)What is Publisher and Subscriber in SNS?
+    Amazon SNS (Simple Notification Service) follows the 
+    Publish-Subscribe (Pub/Sub) messaging pattern.
+
+        Publisher
+            │ Publish Message
+            ▼
+        +----------------+
+        |   SNS Topic    |
+        +----------------+
+        │   │   │
+        ▼   ▼   ▼
+        Subscriber 1
+        Subscriber 2
+        Subscriber 3
+
+    1. Publisher
+        A Publisher is any application or AWS service that sends 
+        (publishes) a message to an SNS Topic.
+
+        The publisher does not know who will receive the message.
+        It simply says: "Here is my message."
+        SNS takes care of delivering it.
+
+        Examples of Publishers
+            Lambda
+            EC2 Application
+            S3
+            CloudWatch Alarm
+            EventBridge
+            Custom Application
+            CodePipeline
+            AWS Backup
+            Any application using AWS SDK
+
+    2. Subscriber
+        A Subscriber is an endpoint that receives messages from an SNS Topic.
+        It subscribes to the topic.
+        Whenever someone publishes a message, SNS automatically sends it to all subscribers.
+
+        Example:
+            SNS Topic
+            │
+            ├── Email
+            ├── Lambda
+            ├── SQS
+            └── SMS
+            All of these receive the same message.
+
+    Can One Topic Have Multiple Subscribers?
+        Yes.
+        Publisher
+            │
+            ▼
+        SNS Topic
+        │  │  │  │
+        ▼  ▼  ▼  ▼
+        Email
+        Lambda
+        SQS
+        SMS
+
+        A single published message is delivered to all subscribers.This is called fan-out.
+
+    Can There Be Multiple Publishers?
+        Yes. All publishers can publish to the same topic.
+
+    Does the publisher know the subscribers?
+        No. The publisher only publishes to an SNS Topic.
+
+        It does not know:
+            Who subscribed, How many subscribers exist
+            What type of subscribers they are
+
+            SNS manages all subscriptions.
+
+    Can subscribers be added later without changing the publisher?
+        That's one of the biggest advantages of SNS. You can add or remove subscribers without modifying the publisher application, making the system loosely coupled.
+
+    Can one subscriber subscribe to multiple topics?
+        Yes.
+
+    Why use the Fan-Out pattern?
+        To distribute the same event to multiple independent consumers 
+        without tightly coupling the publisher to them.
+
+    Does every subscriber receive the message?
+        Yes. SNS delivers a copy of the published message to each 
+        subscriber (subject to successful delivery).
+
+    What happens if one subscriber fails?
+        Other subscribers are not affected.
+        If the failed subscriber is an SQS queue, the message remains in the queue until it's processed or reaches its retention period.
+        For Lambda subscriptions, SNS retries failed deliveries for a period according to its retry policy. 
+        You can also configure a dead-letter queue (DLQ) for supported endpoints to capture undelivered messages.
+
+
+6)SNS vs SQS
+    | SNS                  | SQS                                   |
+    | -------------------- | ------------------------------------- |
+    | Push                 | Pull (polling)                        |
+    | Broadcast            | Queue                                 |
+    | Multiple subscribers | One message processed by one consumer |
+    | Immediate delivery   | Stores messages until consumed        |
+
+    SNS = Broadcast
+    SQS = Queue
+
+
+7)What is Message Filtering?
+    Message Filtering allows SNS to deliver messages only to 
+    subscribers that are interested in them.
+
+    Without filtering:
+        Every subscriber receives every message.
+
+    With filtering:
+        Subscribers receive only the messages that match their filter policy.
+
+    With Message Filtering, Each subscriber defines a filter policy.
+
+    It is an SNS feature that delivers messages only to subscribers 
+    whose filter policies match the message attributes (or message body, if configured).
+
+    Why use Message Filtering?
+        Reduces unnecessary message delivery.
+        Avoids unwanted Lambda executions.
+        Lowers processing costs.
+        Simplifies consumer applications.
+        Improves scalability.
+
+    Where is the filter configured?
+        On the subscription, not on the SNS topic.
+        Each subscriber can have a different filter policy.
+
+    What happens if no filter matches?
+        The message is accepted by the SNS topic, but no subscribers 
+        receive it because none of the subscription filter policies matched.
+
+    
+8)What is SNS FIFO?
+    A FIFO (First-In, First-Out) SNS Topic guarantees:
+
+    Message ordering
+    Exactly-once message delivery (within the deduplication window)
+
+    Messages are delivered to subscribers in the same order they were published.
+
+    Why was SNS FIFO introduced?
+        Standard SNS provides:
+            High throughput
+            Best-effort ordering
+            At-least-once delivery (duplicates are possible)
+
+        Some applications require strict ordering.
+
+        Examples:
+            Banking transactions
+            Stock trading
+            Payment processing
+            Order processing
+        For these, FIFO topics are the right choice.
+
+    Standard SNS vs FIFO SNS
+        | Feature            | Standard SNS          | FIFO SNS                                                       |
+        | ------------------ | --------------------- | -------------------------------------------------------------- |
+        | Ordering           | No guarantee          | Guaranteed within a message group                              |
+        | Duplicate messages | Possible              | Deduplicated (within the deduplication window)                 |
+        | Throughput         | Very high             | Lower than Standard (though high throughput mode is available) |
+        | Use case           | Notifications, alerts | Financial, transactional systems                               |
+
+    FIFO Topic Name
+        A FIFO topic must end with .fifo
+        Example:
+            orders.fifo
+            payments.fifo
+            banking.fifo
+
+    Message Group ID:
+        This is one of the most frequently asked interview questions.
+        
+        Every message sent to an SNS FIFO topic must include a Message Group ID.
+        Example:
+            Customer A
+                MessageGroupId = Customer-100
+            Customer B
+                MessageGroupId = Customer-200
+        SNS guarantees ordering within each Message Group ID.
+
+    Q1. When would you choose SNS FIFO?
+        When the application requires:
+
+        Ordered processing
+        Deduplication
+        Transaction consistency
+
+        Examples: banking, payments, inventory, order processing.
+
+    Q2. Does FIFO guarantee ordering?
+        Yes, within each Message Group ID.
+
+        Different message groups may be processed in parallel.
+
+    Q3. Can FIFO have multiple subscribers?
+        Yes.
+        SNS FIFO still supports the publish-subscribe model. Each compatible subscriber receives messages while preserving FIFO semantics where supported (for example, SQS FIFO queues).
+
+    Q4. What is Message Group ID?
+        It is an identifier that groups related messages.
+        Ordering is guaranteed only within the same Message Group ID.
+
+    Q5. What is Deduplication ID?
+        It uniquely identifies a message for deduplication. If a message with the same deduplication ID is published again within the deduplication window, SNS suppresses the duplicate.
+

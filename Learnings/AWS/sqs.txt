@@ -1,0 +1,277 @@
+1)What is SQS?
+    Amazon SQS (Simple Queue Service) is a fully managed message 
+    queue used to decouple applications.
+        
+        Instead of:
+            Application A
+                ↓
+            Application B
+
+        Use
+            Application A
+                ↓
+                SQS
+                ↓
+            Application B
+
+        If Application B is down,
+        Messages wait in SQS. Nothing is lost.
+
+2)Why SQS?
+    Why use SQS instead of direct API calls?
+    Because it provides
+        Decoupling
+        Reliability
+        Retry mechanism
+        Buffering
+        Asynchronous processing
+        High availability
+
+    Components:
+        Producer
+        ↓
+        Queue
+        ↓
+        Consumer
+
+        Producer sends messages.
+        Consumer reads them.
+    
+3)Message Lifecycle
+    Producer
+    ↓
+    Send Message
+    ↓
+    Stored in Queue
+    ↓
+    Consumer polls
+    ↓
+    Message becomes invisible
+    ↓
+    Consumer processes
+    ↓
+    Delete Message
+    ↓
+    Gone permanently
+
+    Why delete message manually?
+        Because SQS doesn't know whether processing succeeded.
+        Only consumer knows.
+
+4)Queue Types
+    Standard Queue
+    FIFO Queue
+
+    Standard Queue:
+        Default queue
+
+        Unlimited throughput
+        At least once delivery
+        Best effort ordering
+        Can receive duplicate messages.
+        ordering of messages may not be present.
+
+    FIFO Queue:
+        First In First Out.
+
+        Exactly once processing
+        Strict ordering
+        No duplicates.
+        what ever comes first goes first
+
+    When should you use FIFO?
+        Payments
+        Banking
+        Order processing
+        Inventory
+
+        Anything where order matters.
+            
+    Standard vs FIFO
+        | Feature    | Standard     | FIFO            |
+        | ---------- | ------------ | --------------- |
+        | Ordering   | No guarantee | Guaranteed      |
+        | Duplicates | Possible     | No              |
+        | Throughput | Very High    | Lower           |
+        | Cost       | Lower        | Slightly Higher |
+        | Use Cases  | Logs, Emails | Payments        |
+
+    Which queue is faster?
+        Standard.Because Standard queues prioritize high throughput over strict ordering and exactly-once delivery.
+
+        AWS doesn't spend extra time checking:
+            Message order
+            Duplicate messages
+            Message groups
+        It simply accepts and delivers messages as quickly as possible.
+
+        Standard Queue Internally
+            Producer
+                ↓
+            SQS
+                ↓
+            Consumer 1
+            Consumer 2
+            Consumer 3
+
+        AWS can distribute messages across multiple storage nodes and consumers in parallel.
+        This enables very high throughput.
+
+        FIFO Queue Internally
+            Producer
+                ↓
+            FIFO Queue
+                ↓
+            Message 1
+            ↓
+            Message 2
+            ↓
+            Message 3
+            ↓
+            Consumer
+
+        AWS must ensure:
+            Message 1 is processed before Message 2.
+            No duplicate messages are delivered (using deduplication).
+            Messages within the same message group remain in order.
+            These guarantees add coordination overhead, making FIFO slower than Standard.
+        
+5)Polling
+    Polling means continuously checking whether new messages are available in a queue.
+    
+    Consumers poll SQS in Two methods.
+        Short Polling
+            Immediately returns responses.
+            Even if queue empty.
+            Many empty responses.
+            Higher cost.
+
+        Long Polling:
+            Waits, Up to 20 seconds.
+            If message arrives,Immediately returns.
+            Lower cost
+            Less API calls
+            Better performance
+        
+        Which polling should be used?
+            Long polling.
+
+        Who Polls the Queue?
+            Lambda + SQS
+            Many people think SQS invokes Lambda. That's not correct.
+
+            SQS
+            ↓
+            Lambda Poller (managed by AWS)
+            ↓
+            Lambda Function
+
+            AWS runs a poller on your behalf.
+            The poller continuously checks the SQS queue.
+            When messages are found, it invokes your Lambda function.
+
+            So technically:
+                SQS does not push messages to Lambda.
+                Lambda polls SQS (through an AWS-managed event source mapping).
+
+        What is the Default Polling?
+            For SQS ReceiveMessage API, The default WaitTimeSeconds is 0 seconds.
+            That means: Short Polling is the default.
+
+            If you configure, WaitTimeSeconds = 20 then SQS performs Long Polling.
+            Maximum value: 20 seconds
+
+        Does Lambda use short polling or long polling?
+            Lambda's SQS event source mapping uses long polling internally.
+            You don't have to implement the polling logic yourself.
+
+6)Visibility Timeout
+    Visibility Timeout is the amount of time a message becomes 
+    temporarily invisible to other consumers after one consumer receives it.
+
+    This prevents multiple consumers from processing the same message at 
+    the same time.
+
+    Why do we need it?
+        Suppose we have an SQS queue.
+        Message 1
+        Message 2
+        Message 3
+
+        Two consumers are polling.
+        Consumer A
+        Consumer B
+
+        Without Visibility Timeout:
+            Consumer A → Reads Message 1
+            Consumer B → Reads Message 1
+
+            Now both process the same message.
+            ❌ Duplicate processing.
+
+        With Visibility Timeout:
+            Consumer A
+            ↓
+            Reads Message 1
+            ↓
+            Message becomes invisible
+            ↓
+            Consumer B cannot see Message 1
+            Only Consumer A processes it. If not deleted by Consumer A, it becomes visible again
+        
+        Amazon SQS Visibility Timeout:
+        Default:	30 seconds
+        Minimum:	0 seconds
+        Maximum:	12 hours (43,200 seconds)
+
+        Your Lambda takes 8 minutes to process a message. What should your Visibility Timeout be?
+            Set the Visibility Timeout to greater than the Lambda execution time. 
+            AWS commonly recommends configuring it to at least 6× the Lambda timeout 
+            to account for retries and throttling.
+
+
+7)Message Retention
+    Message Retention Period defines how long SQS keeps a message in the queue 
+    if it is not successfully processed and deleted.
+
+    | Setting                      |                     Value |
+    | ---------------------------- | ------------------------: |
+    | **Default Retention Period** |                **4 days** |
+    | **Minimum**                  | **60 seconds (1 minute)** |
+    | **Maximum**                  |               **14 days** |
+
+    A message has been in SQS for 3 days. A consumer receives it but fails. What happens?
+         The Visibility Timeout starts again after the receive operation.
+         If the message is not deleted before the Message Retention Period expires, SQS removes it permanently.
+
+    Does receiving a message remove it?
+        Receiving only starts Visibility Timeout.The message is deleted only after successful processing and DeleteMessage.
+    
+8)What is a Delay Queue?
+    A Delay Queue delays the first time a message becomes visible after it is sent to SQS.
+    The producer sends the message now, but consumers cannot see it until the configured delay has passed.
+
+    Normal Queue: The consumer can receive it immediately.
+    Delay Queue: The message is intentionally hidden for some time.
+
+    | Setting | Value                        |
+    | ------- | ---------------------------- |
+    | Default | **0 seconds**                |
+    | Minimum | **0 seconds**                |
+    | Maximum | **15 minutes (900 seconds)** |
+
+    Message Timer (Per-Message Delay)
+        Instead of delaying every message, you can delay a specific message.
+        Note: Per-message timers are supported only on Standard queues, not FIFO queues.
+
+9)SQS Batch Processing
+    Processing multiple messages in one API call or one Lambda invocation.
+    Maximum batch size For SQS APIs: 10
+
+    Why use batching?
+        Lower cost
+        Fewer API calls
+        Better throughput
+        Higher efficiency
+
+    Batch Operations allow multiple messages to be sent, received, or deleted in a single API request.
