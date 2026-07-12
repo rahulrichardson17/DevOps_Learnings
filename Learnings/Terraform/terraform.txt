@@ -1,0 +1,588 @@
+1)What is Terraform?
+    Terraform is an Infrastructure as Code (IaC) tool by HashiCorp.
+    Instead of creating infrastructure manually through AWS Console, 
+    Azure Portal, or GCP Console, we write code.
+
+    Example: Instead of manually creating
+        EC2, VPC, Subnets, IAM, S3
+
+    Benefits:
+        Version Control
+        Repeatable
+        Automation
+        No manual errors
+        Reusable
+        Multi-cloud
+    
+2)Infrastructure as Code (IaC)
+    Infrastructure becomes code.
+    Advantages:
+        Git history
+        Rollback
+        Peer review
+        Automation
+        Consistency
+
+3)Terraform Workflow
+    Write Code
+    ↓
+    terraform init
+    ↓
+    terraform validate
+    ↓
+    terraform plan
+    ↓
+    terraform apply
+    ↓
+    terraform destroy
+
+    terraform init:
+        Downloads
+            Provider plugins
+            Initializes backend
+            Creates .terraform folder
+        Run once.
+
+    terraform validate
+        Checks syntax.
+        Doesn't create resources.
+
+    terraform fmt
+        Formats code.
+
+    terraform plan
+        Shows
+
+        + Create
+        ~ Update
+        - Destroy
+
+        Nothing changes.Just preview.
+    
+    terraform apply
+        Actually creates resources.
+
+    terraform destroy
+        Deletes infrastructure.
+
+4)Providers
+    AWS Provider, Azure Provider, Google Provider
+
+    Example:
+        provider "aws" {
+            region="ap-south-1"
+        }
+        Terraform doesn't know AWS API. AWS Provider knows.
+
+    Can Terraform create Azure and AWS together?
+        Yes
+    
+5)Resources
+    Everything Terraform creates is Resource.
+
+    resource "aws_instance" "web" {
+
+    }
+
+6)Variables
+    variable "instance_type" {
+    }
+    Use: instance_type = var.instance_type
+
+    Types:
+        string
+        number
+        bool
+        list
+        map
+        object
+        tuple
+        set
+    For more refer file variables.txt
+    
+7)Locals
+    Locals are named expressions that store values inside a Terraform module.
+    Instead of writing the same expression multiple times, define it once inside locals and reuse it.
+
+        Without Locals:
+            resource "aws_instance" "web1" {
+                tags = {
+                    Name = "${var.project}-${var.environment}-web"
+                }
+            }
+
+            resource "aws_security_group" "web" {
+                tags = {
+                    Name = "${var.project}-${var.environment}-web"
+                }
+            }
+        
+        With Locals:
+            locals {
+                common_name = "${var.project}-${var.environment}-web"
+            }
+
+            resource "aws_instance" "web1" {
+                tags = {
+                    Name = local.common_name
+                }
+            }
+
+            resource "aws_security_group" "web" {
+                tags = {
+                    Name = local.common_name
+                }
+            }
+
+        key_note: we define using locals, but while accessing we access it with local
+            local.<name>
+            local.common_name
+
+        Why use locals?
+            To avoid repeating expressions, improve readability, centralize configuration, and make code easier to maintain.
+
+        Difference between variable and local?
+            Variable: Input from user.
+            Local: Calculated value inside module.
+        
+        Can locals be overridden?
+            No. Variables can. Locals cannot.
+
+        Can local reference variable?
+            Yes.
+        
+        Can local reference another local?
+            Yes
+        
+        Can local reference output?
+            No. Outputs are for exposing values outside the module after evaluation. Locals cannot reference outputs because outputs are not inputs to the module.
+        
+        Can local reference resource?
+            Yes, if Terraform can determine the dependency correctly.
+            However, this is less common. Locals are most valuable for computed values 
+            derived from variables and constants rather than storing resource attributes.
+
+        Can locals contain loops?
+            Yes.
+            locals {
+                instance_names = [
+                    for i in range(3):
+
+                    "web-${i}"
+                ]
+
+            }
+        
+        Can locals call functions?
+            Yes. Any Terraform built-in function.
+        
+        Where do companies usually keep locals?
+            locals.tf
+            Some teams separate them further:
+                locals.tf
+                locals_tags.tf
+                locals_network.tf
+                locals_iam.tf
+        
+        Why not use variables everywhere?
+            Variables are for values supplied from outside the module (users, .tfvars, CLI, environment variables). 
+            Locals are for derived or reusable values within the module. If a value shouldn't be configurable, use a local instead of a variable.
+
+        Can local contain complex objects?
+            Yes.
+            Lists,Maps,Objects,Tuples,Sets
+
+        What happens if two resources use the same local?
+            Terraform computes the local expression once for the module context, 
+            and every reference gets the same value. This avoids repeating the 
+            expression and keeps the configuration consistent.
+
+        Local Can Store Lists
+            locals {
+                availability_zones = [
+                    "us-east-1a",
+                    "us-east-1b",
+                    "us-east-1c"
+                ]
+            }
+            use: availability_zone = local.availability_zones[0]
+            
+            The above returns only the first element. if we want to use all tf doesnt
+            iterate over a list.
+
+            For creating multiple resources, count and for_each are the most common.
+
+            Can you directly assign a list to availability_zone?
+                No. availability_zone expects a single string, not a list.
+
+            Example: USing count
+
+                locals {
+                    availability_zones = [
+                        "us-east-1a",
+                        "us-east-1b",
+                        "us-east-1c"
+                    ]
+
+                    cidrs = [
+                        "10.0.1.0/24",
+                        "10.0.2.0/24",
+                        "10.0.3.0/24"
+                    ]
+                }
+
+                resource "aws_subnet" "private" {
+                    count = length(local.availability_zones)
+                    vpc_id = aws_vpc.main.id
+                    availability_zone = local.availability_zones[count.index]
+                    cidr_block        = local.cidrs[count.index]
+                }
+
+                Here you dont need multiple counts for availability_zone and  cidr_block
+                Because count belongs to the resource, not to an individual attribute.
+
+                A resource can have only one count (or one for_each), because that controls how many copies of the entire resource are created.
+
+                Since you're using the same count.index for both lists, they must have the same number of elements.
+
+                What if the lengths don't match?
+                    availability_zones = [
+                        "us-east-1a",
+                        "us-east-1b",
+                        "us-east-1c"
+                    ]
+                    cidrs = [
+                        "10.0.1.0/24",
+                        "10.0.2.0/24"
+                    ]
+                    count is still 3 because it's based on availability_zones.
+                    Terraform will fail with an index out of range error.
+
+            Example: Using for_each
+                locals {
+                    availability_zones = [
+                        "us-east-1a",
+                        "us-east-1b",
+                        "us-east-1c"
+                    ]
+                }
+
+                resource "aws_instance" "server" {
+                    for_each = toset(local.availability_zones)
+
+                    ami           = "ami-123456"
+                    instance_type = "t2.micro"
+                    availability_zone = each.value
+                }
+
+        Local Can Store Maps
+            Example: Map of string
+            locals {
+                instance_type = {
+                    dev="t2.micro"
+                    qa="t3.small"
+                    prod="m5.large"
+                }
+            }
+            use: instance_type = local.instance_type[var.environment]
+
+            Example: map of objects
+                locals {
+                    subnets = {
+                        subnet1 = {
+                            az   = "us-east-1a"
+                            cidr = "10.0.1.0/24"
+                        }
+                        subnet2 = {
+                            az   = "us-east-1b"
+                            cidr = "10.0.2.0/24"
+                        }
+                    }
+                }
+
+                resource "aws_subnet" "private" {
+                    for_each = local.subnets
+
+                    availability_zone = each.value.az
+                    cidr_block        = each.value.cidr
+                }
+        
+        Local Can Store Objects
+            locals {
+                database = {
+                    engine="postgres"
+                    version="15"
+                    port=5432
+                }
+            }
+            Use:
+                engine = local.database.engine
+                port = local.database.port
+
+        Local Can Use Functions
+            Uppercase
+                locals {
+                    project = upper(var.project)
+                }
+
+            Trim
+                locals {
+                    bucket = lower(var.bucket_name)
+                }
+
+            Join
+                locals {
+                    name = join("-",[
+                    var.project,
+                    var.environment,
+                    "web"
+                    ])
+                }
+
+            Replace
+                locals {
+                    app = replace(var.name," ","-")
+                }
+        
+        Local Can Use Expressions
+            locals {
+                is_prod = var.environment =="prod"
+            }
+
+            Use: count = local.is_prod ? 3 :1
+
+    Locals are module-scoped:
+        A local value is available only inside the module where it is declared. 
+        One module cannot directly access another module's locals.
+
+    | Item        | Scope                         |
+    | ----------- | ----------------------------- |
+    | Variable    | Module scoped                 |
+    | Local       | Module scoped                 |
+    | Resource    | Module scoped                 |
+    | Data source | Module scoped                 |
+    | Output      | Exposes values outside module |
+
+    Are Terraform locals global?
+        No. Locals are scoped to the module where they are declared. 
+        A child module cannot directly access the parent's locals or variables. 
+        Values must be passed explicitly using module input variables. 
+        Similarly, child modules expose values using outputs.
+
+    If we have two local files in a same module, tf treats it as single one, 
+    it basically merges the both.
+
+    Important: Local names must be unique inside a module
+
+8)Outputs
+    Terraform outputs expose values from your Terraform configuration after resources are created.
+    
+    How do I get important information about the infrastructure Terraform created?
+        Examples:
+            EC2 public IP
+            Load Balancer DNS name
+            RDS endpoint
+            VPC ID
+            Subnet IDs
+    Terraform creates resources internally, but outputs allow you to retrieve and share those values.
+
+    main.tf
+        resource "aws_instance" "web" {
+            ami = "ami-123456"
+            instance_type = "t3.micro"
+        }
+        After creation,Terraform knows But unless you expose them, you don't easily get them.
+
+    outputs.tf
+        output "instance_id" {
+            value = aws_instance.web.id
+        }
+
+    Output Components
+        A Terraform output has several arguments:
+        1. Value
+            Mandatory argument. It defines what value should be displayed.
+        
+        2. Description
+            Optional. Used for documentation.
+        
+        3. Sensitive (Very important interview topic.)
+            Used to hide sensitive values.
+            output "instance_id" {
+                value = aws_instance.web.id
+                sensitive = true
+            }
+            The value is still stored in Terraform state. It only prevents displaying it in CLI output.
+
+        4. depends_on
+            Forces Terraform to wait for another resource.
+            rarely used bcz, Usually Terraform automatically understands dependencies.
+        
+        Output Types:
+            Outputs can return:
+            String
+                output "region" {
+                    value = var.region
+                }
+                us-east-1
+
+            Number
+                output "instance_count" {
+                    value = length(aws_instance.web)
+                }
+
+            Boolean
+
+            List
+                resource "aws_instance" "web" {
+                    count = 3
+                    ami = "ami-12345"
+                    instance_type="t3.micro"
+                }
+                output "instance_ids" {
+                    value = aws_instance.web[*].id
+                }
+                ["i-111","i-222"]
+
+            Map
+                output "instance_details" {
+                    value = {
+                        id = aws_instance.web.id
+                        private_ip = aws_instance.web.private_ip
+                    }
+                }
+
+                {
+                    id="i-123"
+                    private_ip="10.0.1.10"
+                }
+
+            Object
+                output "database_info" {
+                    value = {
+                        endpoint = aws_db_instance.db.endpoint
+                        port = aws_db_instance.db.port
+                        engine = aws_db_instance.db.engine
+                    }
+                }
+
+                {
+                    endpoint="mysql.xxxx.amazonaws.com"
+                    port=3306
+                    engine="mysql"
+                }
+
+            Set
+
+        store output: terraform output -json
+        When do you use terraform output -json?
+            terraform output -json returns Terraform outputs in machine-readable JSON format. It's commonly used in automation, such as CI/CD pipelines, shell scripts, Ansible, or other tools that need to consume Terraform outputs programmatically. For a single string value, 
+            terraform output -raw <output_name> is usually simpler, while -json is preferred when multiple outputs or structured data need to be processed.
+        
+        Where are output values stored?
+            Terraform stores outputs inside: terraform.tfstate
+
+        Can output values be used by another module?
+            Yes
+
+        Can we hide outputs?
+            Yes,But it does not encrypt.
+
+        Difference between terraform output and terraform show?
+            terraform output, Shows only outputs.
+            terraform show,Shows entire Terraform state.
+
+        How do CI/CD pipelines consume Terraform outputs?
+            terraform output -json > output.json
+
+        You created VPC in one Terraform project and EKS in another project. How will EKS get VPC details?
+            Use remote state.
+
+            Example: VPC project
+                output "vpc_id" {
+                    value=aws_vpc.main.id
+                }
+            
+            EKS project:
+                data "terraform_remote_state" "vpc" {
+                    backend="s3"
+                    config={
+                        bucket="terraform-state"
+                        key="vpc/terraform.tfstate"
+                        region="us-east-1"
+                    }
+                }
+                use: vpc_id=data.terraform_remote_state.vpc.outputs.vpc_id
+
+9)Data Sources
+    A Data Source allows Terraform to read information about existing infrastructure 
+    that is not created by the current Terraform configuration.
+
+    Think of it this way:
+        Resource → Creates or manages infrastructure.
+        Data Source → Reads existing infrastructure.
+    Data sources are read-only. Terraform does not create, update, or delete them.
+
+    Resource vs Data Source
+        | Resource                  | Data Source                                              |
+        | ------------------------- | -------------------------------------------------------- |
+        | Creates infrastructure    | Reads existing infrastructure                            |
+        | Can update infrastructure | Cannot modify anything                                   |
+        | Managed by Terraform      | Managed outside the current configuration (or elsewhere) |
+        | Stored in Terraform state | Only stores fetched values in state for reference        |
+        | Uses `resource` block     | Uses `data` block                                        |
+
+    Syntax:
+        data "<provider>_<resource_type>" "<local_name>" {
+            arguments
+        }
+
+    Read an existing VPC.
+        data "aws_vpc" "existing" {
+            id = "vpc-123456"
+        }
+
+
+
+
+Terraform State
+
+Remote State
+
+State Locking
+
+Backend
+
+Modules
+
+Dependency Graph
+
+Expressions
+
+Meta Arguments
+
+Lifecycle
+
+Workspaces
+
+Provisioners
+
+Import
+
+Taint / Replace
+
+Drift Detection
+
+Terraform Cloud / Enterprise
+
+Secrets Management
+
+
+
+questions:
+    Does Terraform execute .tf files in order?
+        No, It loads all .tf files in the directory, builds a dependency graph, 
+        and then decides execution order based on dependencies.
+
+        The filenames are only for organization. They have no execution order.
+
