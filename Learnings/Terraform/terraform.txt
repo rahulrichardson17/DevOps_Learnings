@@ -16,6 +16,7 @@
     
 2)Infrastructure as Code (IaC)
     Infrastructure becomes code.
+
     Advantages:
         Git history
         Rollback
@@ -24,6 +25,7 @@
         Consistency
 
 3)Terraform Workflow
+
     Write Code
     ↓
     terraform init
@@ -84,9 +86,12 @@
 
     }
 
-6)Variables
+6)DataTypes
+
     variable "instance_type" {
+        type = String
     }
+
     Use: instance_type = var.instance_type
 
     Types:
@@ -105,6 +110,7 @@
     Instead of writing the same expression multiple times, define it once inside locals and reuse it.
 
         Without Locals:
+
             resource "aws_instance" "web1" {
                 tags = {
                     Name = "${var.project}-${var.environment}-web"
@@ -118,6 +124,7 @@
             }
         
         With Locals:
+
             locals {
                 common_name = "${var.project}-${var.environment}-web"
             }
@@ -139,7 +146,8 @@
             local.common_name
 
         Why use locals?
-            To avoid repeating expressions, improve readability, centralize configuration, and make code easier to maintain.
+            To avoid repeating expressions, improve readability, centralize configuration, 
+            and make code easier to maintain.
 
         Difference between variable and local?
             Variable: Input from user.
@@ -155,7 +163,8 @@
             Yes
         
         Can local reference output?
-            No. Outputs are for exposing values outside the module after evaluation. Locals cannot reference outputs because outputs are not inputs to the module.
+            No. Outputs are for exposing values outside the module after evaluation. 
+            Locals cannot reference outputs because outputs are not inputs to the module.
         
         Can local reference resource?
             Yes, if Terraform can determine the dependency correctly.
@@ -186,7 +195,8 @@
         
         Why not use variables everywhere?
             Variables are for values supplied from outside the module (users, .tfvars, CLI, environment variables). 
-            Locals are for derived or reusable values within the module. If a value shouldn't be configurable, use a local instead of a variable.
+            Locals are for derived or reusable values within the module. If a value shouldn't be configurable, 
+            use a local instead of a variable.
 
         Can local contain complex objects?
             Yes.
@@ -241,7 +251,8 @@
                 Here you dont need multiple counts for availability_zone and  cidr_block
                 Because count belongs to the resource, not to an individual attribute.
 
-                A resource can have only one count (or one for_each), because that controls how many copies of the entire resource are created.
+                A resource can have only one count (or one for_each), because that controls 
+                how many copies of the entire resource are created.
 
                 Since you're using the same count.index for both lists, they must have the same number of elements.
 
@@ -277,6 +288,7 @@
 
         Local Can Store Maps
             Example: Map of string
+
             locals {
                 instance_type = {
                     dev="t2.micro"
@@ -287,6 +299,7 @@
             use: instance_type = local.instance_type[var.environment]
 
             Example: map of objects
+
                 locals {
                     subnets = {
                         subnet1 = {
@@ -302,7 +315,6 @@
 
                 resource "aws_subnet" "private" {
                     for_each = local.subnets
-
                     availability_zone = each.value.az
                     cidr_block        = each.value.cidr
                 }
@@ -315,11 +327,13 @@
                     port=5432
                 }
             }
+
             Use:
                 engine = local.database.engine
                 port = local.database.port
 
         Local Can Use Functions
+
             Uppercase
                 locals {
                     project = upper(var.project)
@@ -387,6 +401,7 @@
     Terraform creates resources internally, but outputs allow you to retrieve and share those values.
 
     main.tf
+
         resource "aws_instance" "web" {
             ami = "ami-123456"
             instance_type = "t3.micro"
@@ -394,11 +409,13 @@
         After creation,Terraform knows But unless you expose them, you don't easily get them.
 
     outputs.tf
+
         output "instance_id" {
             value = aws_instance.web.id
         }
 
     Output Components
+
         A Terraform output has several arguments:
         1. Value
             Mandatory argument. It defines what value should be displayed.
@@ -420,6 +437,7 @@
         
         Output Types:
             Outputs can return:
+            
             String
                 output "region" {
                     value = var.region
@@ -439,9 +457,11 @@
                     ami = "ami-12345"
                     instance_type="t3.micro"
                 }
+
                 output "instance_ids" {
                     value = aws_instance.web[*].id
                 }
+
                 ["i-111","i-222"]
 
             Map
@@ -475,9 +495,13 @@
             Set
 
         store output: terraform output -json
+
         When do you use terraform output -json?
-            terraform output -json returns Terraform outputs in machine-readable JSON format. It's commonly used in automation, such as CI/CD pipelines, shell scripts, Ansible, or other tools that need to consume Terraform outputs programmatically. For a single string value, 
-            terraform output -raw <output_name> is usually simpler, while -json is preferred when multiple outputs or structured data need to be processed.
+            terraform output -json returns Terraform outputs in machine-readable JSON format. 
+            It's commonly used in automation, such as CI/CD pipelines, shell scripts, Ansible, 
+            or other tools that need to consume Terraform outputs programmatically. For a single string value, 
+            terraform output -raw <output_name> is usually simpler, while -json is preferred 
+            when multiple outputs or structured data need to be processed.
         
         Where are output values stored?
             Terraform stores outputs inside: terraform.tfstate
@@ -840,32 +864,35 @@
             Called from another module.
             Root module calls EC2 module.
         
-    Module Sources
+    Module Sources:
+
         Terraform modules can come from different locations.
+
         Local Module
+
             module "ec2" {
-            source="./modules/ec2"
-        }
-        Most common while developing.
+                source="./modules/ec2"
+            }
+            Most common while developing.
 
         GitHub Module
-        module "vpc" {
-            source="git::https://github.com/company/vpc-module.git"
-        }
-        Used in enterprises.
+            module "vpc" {
+                source="git::https://github.com/company/vpc-module.git"
+            }
+            Used in enterprises.
 
         Versioned Git Tag
-        module "vpc" {
-            source="git::https://github.com/company/vpc-module.git?ref=v1.2.0"
-        }
-        Always pin versions.
+            module "vpc" {
+                source="git::https://github.com/company/vpc-module.git?ref=v1.2.0"
+            }
+            Always pin versions.
 
         Terraform Registry
-        module "vpc" {
-            source="terraform-aws-modules/vpc/aws"
-            version="5.0.0"
-        }
-        Popular open-source modules.
+            module "vpc" {
+                source="terraform-aws-modules/vpc/aws"
+                version="5.0.0"
+            }
+            Popular open-source modules.
 
     Can Modules have Providers?
         Yes. Modules inherit provider configurations from the root module by default, 
@@ -880,7 +907,9 @@
 
     Your company has 50 applications. How would you avoid duplicating Terraform code?
         Create reusable modules for common infra
-        Each application reuses these modules by supplying different input variables (for example, environment, instance type, CIDR ranges, and tags), reducing duplication and ensuring consistent infrastructure standards.
+        Each application reuses these modules by supplying different input variables 
+        (for example, environment, instance type, CIDR ranges, and tags), reducing duplication and 
+        ensuring consistent infrastructure standards.
 
 14)Dependency Graph
     A Dependency Graph is an internal graph built by Terraform that determines:
@@ -912,8 +941,7 @@
         references another.No need to write anything extra.
 
     Explicit Dependency (depends_on)
-        Sometimes there is no direct reference, but a dependency 
-        still exists.
+        Sometimes there is no direct reference, but a dependency still exists.
 
         resource "aws_instance" "web" {
             ami = "ami-123"
@@ -974,55 +1002,61 @@
 
     Function Expressions
         Terraform has built-in functions.
-        length,upper,
-        join("-",["app","prod"]) app-prod
-        split(",", "a,b,c") ["a","b","c"]
-        lookup(var.tags,"Environment")
-        merge(
-        {
-        Environment="prod"
-        },
-        {
-        Team="DevOps"
-        }
-        )
+            length,
+            upper,
+            join("-",["app","prod"]) 
+                app-prod
 
-        {
-         Environment="prod"
-         Team="DevOps"
-        }
+            split(",", "a,b,c") 
+                ["a","b","c"]
+
+            lookup(var.tags,"Environment")
+
+            merge
+            (
+                {
+                    Environment="prod"
+                },
+                {
+                    Team="DevOps"
+                }
+            )
+
+            {
+            Environment="prod"
+            Team="DevOps"
+            }
     
-    You have 3 environments: dev, test, prod. Production needs 5 EC2 instances, others need 1. How will you implement this without duplicate code?
+    You have 3 environments: dev, test, prod. Production needs 5 EC2 instances, others need 1. 
+    How will you implement this without duplicate code?
+
         count = var.environment == "prod" ? 5 : 1
 
     Splat Expressions
+
         Used to extract attributes from multiple resources.
             aws_instance.web[*].id
 
     Dynamic Expressions
+
         Used to create repeated nested blocks.
         
         Without dynamic:
             ingress {
-
-            from_port=80
-
+                from_port=80
             }
 
             ingress {
-
-            from_port=443
-
+                from_port=443
             }
 
         With dynamic:
-
-        dynamic "ingress" {
-            for_each = var.rules
-            content {
-                from_port = ingress.value
+            dynamic "ingress" {
+                for_each = var.rules
+                content {
+                    from_port = ingress.value
+                }
             }
-        }
 
 16)Meta Arguments
     Meta-arguments are special arguments supported by Terraform itself 
@@ -1045,41 +1079,49 @@
 17)Lifecycle
 
     Controls how Terraform manages resources.
-    Normally: create_before_destroy
+
+    create_before_destroy
+
         Terraform:
             Destroy
             ↓
             Create
         Can cause downtime.
 
-        Enable:
+    Enable:
+
+        lifecycle {
+            create_before_destroy = true
+        }
+
+        Create New
+        ↓
+        Switch
+        ↓
+        Destroy Old
+
+    Zero downtime (where the provider supports having both resources temporarily).
+
+    prevent_destroy
+
+        Protects resources.
+
+        Example:
             lifecycle {
-                create_before_destroy = true
+                prevent_destroy = true
             }
-            Create New
-            ↓
-            Switch
-            ↓
-            Destroy Old
-        Zero downtime (where the provider supports having both resources temporarily).
 
-        prevent_destroy
-            Protects resources.
+        If someone runs: terraform destroy
+            Terraform fails.
 
-            Example:
-                lifecycle {
-                    prevent_destroy = true
-                }
-
-            If someone runs: terraform destroy
-                Terraform fails.
-            Useful for:
-                Production Database
-                S3 Bucket
-                KMS Key
+        Useful for:
+            Production Database
+            S3 Bucket
+            KMS Key
     
     When do we use provider meta-argument?
-        When multiple provider configurations exist (for example, multiple AWS regions or accounts), and a specific resource should use a particular provider.
+        When multiple provider configurations exist (for example, multiple AWS regions or accounts), 
+        and a specific resource should use a particular provider.
 
     Can ignore_changes ignore everything?
         You can ignore multiple attributes, and Terraform also supports 
@@ -1104,6 +1146,7 @@
 
 
 18)Workspaces
+
     Terraform Workspaces allow you to use the same Terraform configuration 
     to manage multiple environments while maintaining separate state files.
 
@@ -1127,6 +1170,7 @@
     terraform apply -var-file=dev.tfvars
 
 19)Provisioners
+
     Provisioners execute scripts or commands on the local machine or 
     remote resources after creation (or before destruction). 
     They are intended for bootstrapping or integration tasks 
@@ -1148,7 +1192,8 @@
 
     Why do most companies avoid Provisioners?
         They make Terraform imperative, depend on connectivity (SSH/WinRM), 
-        are harder to recover from failures, and are less reliable than user data, cloud-init, Packer, or configuration management tools.
+        are harder to recover from failures, and are less reliable than user data, cloud-init, 
+        Packer, or configuration management tools.
 
 20)Import
     Terraform Import is used when:
@@ -1212,7 +1257,9 @@
 
 
 questions:
+
     Does Terraform execute .tf files in order?
+
         No, It loads all .tf files in the directory, builds a dependency graph, 
         and then decides execution order based on dependencies.
 
@@ -1245,141 +1292,106 @@ questions:
             ❌ 6.7.0
             ❌ 7.0.0
 
-    resource "aws_security_group" "security_group" {
-        name = "instance_security_group"
-
-        ingress {
-            from_port = 22
-            to_port = 22
-            protocol = "tcp"
-            cidr_blocks = ["0.0.0.0/0"]
-        }
-
-        ingress {
-            from_port = 80
-            to_port = 80
-            protocol = "tcp"
-            cidr_blocks = ["0.0.0.0/0"]
-
-        }
-
-        egress {
-            from_port = 0
-            to_port = 0
-            protocol = "-1"
-            cidr_blocks = ["0.0.0.0/0"]
-        }
-
-    }
-
     Q1. Why are there two ingress blocks?
 
-    Each ingress block defines one inbound rule. Terraform combines them into the Security Group's inbound rule set.
+        resource "aws_security_group" "security_group" {
+            name = "instance_security_group"
+
+            ingress {
+                from_port = 22
+                to_port = 22
+                protocol = "tcp"
+                cidr_blocks = ["0.0.0.0/0"]
+            }
+
+            ingress {
+                from_port = 80
+                to_port = 80
+                protocol = "tcp"
+                cidr_blocks = ["0.0.0.0/0"]
+
+            }
+
+            egress {
+                from_port = 0
+                to_port = 0
+                protocol = "-1"
+                cidr_blocks = ["0.0.0.0/0"]
+            }
+        }
+        
+        Each ingress block defines one inbound rule. Terraform combines them into 
+        the Security Group's inbound rule set.
 
     Q2. Why use 0.0.0.0/0?
+        It allows access from any IPv4 address.
+        
+        Suitable for:
+            Public web servers (HTTP/HTTPS)
 
-    It allows access from any IPv4 address.
+        Not recommended for: SSH in production
+        
+        What does protocol = "-1" mean?
+            It means: All protocols
 
-    Suitable for:
+            Examples:
+                TCP
+                UDP
+                ICMP
+            Everything is allowed.
 
-    Public web servers (HTTP/HTTPS)
+    Q3. Why are from_port = 0 and to_port = 0 used with protocol = "-1"?
 
-    Not recommended for:
-
-    SSH in production
-
-    What does protocol = "-1" mean?
-
-    It means:
-
-    All protocols
-
-    Examples:
-
-    TCP
-    UDP
-    ICMP
-
-    Everything is allowed.
-
-    Why are from_port = 0 and to_port = 0 used with protocol = "-1"?
-
-    When protocol = "-1" (all protocols), Terraform and AWS ignore the port numbers. This combination is the standard way to define allow all outbound traffic.
+        When protocol = "-1" (all protocols), Terraform and AWS ignore the port numbers. 
+        This combination is the standard way to define allow all outbound traffic.
 
 
-    Is the egress block required?
+    Q4. Is the egress block required?
+        Not always. AWS Security Groups default to allowing all outbound traffic 
+        when created manually. However, in Terraform it's a best practice to define 
+        the egress rule explicitly so your infrastructure is fully described in code 
+        and behaves consistently across environments.
 
-    Not always. AWS Security Groups default to allowing all outbound traffic when created manually. However, in Terraform it's a best practice to define the egress rule explicitly so your infrastructure is fully described in code and behaves consistently across environments.
+    Q5. from_port = 22 and to_port = 25 Does it allow all ports between them?
+            Yes. It means: 22, 23, 24, 25
+            All these ports are allowed.
+            Think of it as: Allow ports from X to Y (inclusive).
 
-    Question 1
-from_port = 22
-to_port   = 25
+    Q6. When AWS sees protocol = "-1" what happens??
+        It ignores from_port and to_port are essentially placeholders. 
+        They are required by the Terraform schema, but they have no effect when protocol = "-1".
 
-Does it allow all ports between them?
+    Q7. If protocol was TCP
 
-Yes.
+            Suppose you wrote:
+            egress {
+                from_port = 0
+                to_port   = 0
+                protocol  = "tcp"
+            }
+            Now AWS does not ignore the ports.
 
-It means:
+            This means: Allow only TCP port 0
+            Port 0 is a reserved port and isn't used for normal communication, 
+            so this rule is generally not useful.
 
-22
-23
-24
-25
+    | Configuration                                          | Meaning                                                   |
+    | ------------------------------------------------------ | --------------------------------------------------------- |
+    | `from_port = 22`, `to_port = 22`                       | Only port 22                                              |
+    | `from_port = 22`, `to_port = 25`                       | Ports 22, 23, 24, 25                                      |
+    | `from_port = 80`, `to_port = 90`                       | Ports 80 through 90                                       |
+    | `from_port = 0`, `to_port = 65535`, `protocol = "tcp"` | All TCP ports                                             |
+    | `from_port = 0`, `to_port = 0`, `protocol = "-1"`      | **All protocols and all ports** (port values are ignored) |
 
-All these ports are allowed.
+    In AWS Security Groups, the protocol field defines which network protocol the rule applies to.
+    Common values are:
+        | Protocol value | Meaning           | Common usage                                            |
+        | -------------- | ----------------- | ------------------------------------------------------- |
+        | `-1`           | **All protocols** | Allow everything                                        |
+        | `tcp`          | TCP protocol      | HTTP (80), HTTPS (443), SSH (22), RDP (3389), databases |
+        | `udp`          | UDP protocol      | DNS (53), DHCP, streaming, gaming                       |
+        | `icmp`         | ICMP protocol     | Ping, network diagnostics                               |
 
-Think of it as:
-
-Allow ports from X to Y (inclusive).
-
-------
-When AWS sees:
-
-protocol = "-1"
-
-it ignores from_port and to_port.
-
-are essentially placeholders. They are required by the Terraform schema, but they have no effect when protocol = "-1".
-
------
-If protocol was TCP
-
-Suppose you wrote:
-
-egress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "tcp"
-}
-
-Now AWS does not ignore the ports.
-
-This means:
-
-Allow only TCP port 0
-
-Port 0 is a reserved port and isn't used for normal communication, so this rule is generally not useful.
-
--------
-| Configuration                                          | Meaning                                                   |
-| ------------------------------------------------------ | --------------------------------------------------------- |
-| `from_port = 22`, `to_port = 22`                       | Only port 22                                              |
-| `from_port = 22`, `to_port = 25`                       | Ports 22, 23, 24, 25                                      |
-| `from_port = 80`, `to_port = 90`                       | Ports 80 through 90                                       |
-| `from_port = 0`, `to_port = 65535`, `protocol = "tcp"` | All TCP ports                                             |
-| `from_port = 0`, `to_port = 0`, `protocol = "-1"`      | **All protocols and all ports** (port values are ignored) |
-
-----
-In AWS Security Groups, the protocol field defines which network protocol the rule applies to.
-Common values are:
-    | Protocol value | Meaning           | Common usage                                            |
-    | -------------- | ----------------- | ------------------------------------------------------- |
-    | `-1`           | **All protocols** | Allow everything                                        |
-    | `tcp`          | TCP protocol      | HTTP (80), HTTPS (443), SSH (22), RDP (3389), databases |
-    | `udp`          | UDP protocol      | DNS (53), DHCP, streaming, gaming                       |
-    | `icmp`         | ICMP protocol     | Ping, network diagnostics                               |
-
------
     | Protocol Number | Protocol |
     | --------------- | -------- |
     | 6               | TCP      |
@@ -1389,127 +1401,75 @@ Common values are:
     | 50              | ESP      |
     | 51              | AH       |
 
------
-Can an EC2 instance download packages if outbound security group allows only DNS port 53?"
 
-Answer:
+    Q8. Can an EC2 instance download packages if outbound security group allows only DNS port 53?"
+            No. DNS only resolves the domain name to an IP address. 
+            Package installation requires DNS on port 53 plus an actual connection 
+            to the repository, usually HTTPS on TCP port 443. Therefore outbound rules 
+            must allow both UDP/TCP 53 and TCP 443.
 
-"No. DNS only resolves the domain name to an IP address. Package installation requires DNS on port 53 plus an actual connection to the repository, usually HTTPS on TCP port 443. Therefore outbound rules must allow both UDP/TCP 53 and TCP 443."
------
-Question: Can we restrict incoming traffic to office IPs?
+    Q9. Can we restrict incoming traffic to office IPs?
+            Yes. We restrict ingress rules using CIDR blocks. For example, 
+            SSH can be allowed only from corporate public IP ranges using /32 for a single IP or /24 for a subnet.
 
-Answer:
+    Q10. Can we allow EC2 downloads only from office IP?
+            Technically yes, but it usually doesn't make sense because egress controls 
+            the destination. Package downloads go to repository servers, not office IPs. 
+            We normally allow HTTPS egress to required destinations or use controlled mechanisms 
+            like proxies or VPC endpoints.
 
-Yes. We restrict ingress rules using CIDR blocks. For example, SSH can be allowed only from corporate public IP ranges using /32 for a single IP or /24 for a subnet.
+    Q11. Allow SSH only from my office IP
+        Use: cidr_blocks = ["Office_Public_IP/32"]
+        Because you want exactly one IP.
+        
+        If they say Allow SSH from entire office network
+        Use: cidr_blocks = ["Office_Network/24"]
 
-----------
-Question: Can we allow EC2 downloads only from office IP?
+        because the whole office subnet can access.
 
-Answer:
+    Q12. What is 099720109477 in Ubuntu AMI lookup?
+        It is Canonical's AWS account ID. We use it in the owners field to ensure 
+        Terraform selects official Ubuntu AMIs published by Canonical.
 
-Technically yes, but it usually doesn't make sense because egress controls the destination. Package downloads go to repository servers, not office IPs. We normally allow HTTPS egress to required destinations or use controlled mechanisms like proxies or VPC endpoints.
-
-This distinction between ingress source and egress destination is a very common AWS networking interview topic.
-
------
-| CIDR  | Meaning            | Number of IPs |
-| ----- | ------------------ | ------------- |
-| `/32` | Single IP          | 1             |
-| `/31` | Point-to-point     | 2             |
-| `/30` | Small network      | 4             |
-| `/24` | Common subnet      | 256           |
-| `/16` | Large VPC          | 65,536        |
-| `/8`  | Very large network | 16 million    |
-
------
-For Security Groups remember:
-
-If interviewer says:
-
-Allow SSH only from my office IP
-
-Use:
-
-cidr_blocks = ["Office_Public_IP/32"]
-
-Because you want exactly one IP.
-
-If they say:
-
-Allow SSH from entire office network
-
-Use:
-
-cidr_blocks = ["Office_Network/24"]
-
-because the whole office subnet can access.
-
------
-    IPv4 has 32 bits.
-
-Binary:
-
-10        .0        .0        .0
-00001010 .00000000 .00000000 .00000000
-
-<--------><--------><--------><-------->
- 8 bits     8 bits    8 bits    8 bits
-
-Total = 32 bits
-
-Now /16 means:
-
-First 16 bits = Network
-Remaining 16 bits = Host
-
-So:
-
-Network              Host
-16 bits              16 bits
-
-00001010.00000000 | 00000000.00000000
+    Q13. How do you avoid always taking the latest AMI?
+        Removing most_recent is not enough because multiple AMIs may match. 
+        We either specify an exact AMI ID, filter by an exact AMI name/version, 
+        or use an approved golden AMI pipeline in production.
 
 
------
-Object ownership options
+    Traditional Terraform
 
-There are 3 options:
+        VS Code
+        │
+        terraform validate
+        terraform plan
+        terraform apply
+        │
+        ▼
+        AWS
 
-1. BucketOwnerEnforced ⭐ (recommended)
-ACLs disabled
+        You run everything yourself. State is stored in S3.
 
-Bucket owner owns everything
+    Terraform Enterprise
 
-Modern AWS best practice.
+        VS Code
+        │
+        git push
+        │
+        ▼
+        GitHub
+        │
+        Webhook
+        ▼
+        Terraform Enterprise
+        │
+        Plan
+        Policy Checks
+        Cost Estimation
+        Approval
+        Apply
+        │
+        ▼
+        AWS
 
-2. BucketOwnerPreferred
-ACLs still enabled
-
-But bucket owner becomes owner
-when uploader uses bucket-owner-full-control ACL
-
-Example:
-
-Uploader must send:
-
-x-amz-acl: bucket-owner-full-control
-3. ObjectWriter
-
-Old behavior:
-
-Uploader owns object
-
-Example:
-
-Account B uploads:
-
-file.txt owner = Account B
-
-----------
-Q: What is 099720109477 in Ubuntu AMI lookup?
-
-"It is Canonical's AWS account ID. We use it in the owners field to ensure Terraform selects official Ubuntu AMIs published by Canonical."
-
-Q: How do you avoid always taking the latest AMI?
-
-"Removing most_recent is not enough because multiple AMIs may match. We either specify an exact AMI ID, filter by an exact AMI name/version, or use an approved golden AMI pipeline in production."
+        You don't run terraform apply from your laptop anymore.Terraform Enterprise runs it.

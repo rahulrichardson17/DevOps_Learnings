@@ -518,4 +518,33 @@
         Select the service (Secrets Manager, ECR, SSM, etc.)
         AWS takes care of the PrivateLink implementation.
 
-    
+Questions:
+
+    | CIDR  | Meaning            | Number of IPs |
+    | ----- | ------------------ | ------------- |
+    | `/32` | Single IP          | 1             |
+    | `/31` | Point-to-point     | 2             |
+    | `/30` | Small network      | 4             |
+    | `/24` | Common subnet      | 256           |
+    | `/16` | Large VPC          | 65,536        |
+    | `/8`  | Very large network | 16 million    |
+
+    IPv4 has 32 bits.
+    Binary:
+
+        10        .0        .0        .0
+        00001010 .00000000 .00000000 .00000000
+
+        <--------><--------><--------><-------->
+        8 bits     8 bits    8 bits    8 bits
+
+    Total = 32 bits
+
+    Now /16 means:
+        First 16 bits = Network
+        Remaining 16 bits = Host
+
+    So:
+        Network              Host
+        16 bits              16 bits
+        00001010.00000000 | 00000000.00000000

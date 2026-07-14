@@ -1,39 +1,44 @@
 1. String
 
-    Use case:
-        EC2 instance name.
+    Use case: EC2 instance name.
 
-        variables.tf
-            variable "instance_name" {
-                type = string
+    variables.tf
+
+        variable "instance_name" {
+            type = string
+        }
+
+    terraform.tfvars
+
+        instance_name = "web-server"
+
+    main.tf
+
+        resource "aws_instance" "web" {
+            ami = "ami-123456"
+            instance_type = "t2.micro"
+            tags = {
+                Name = var.instance_name
             }
+        }
 
-        terraform.tfvars
-            instance_name = "web-server"
-
-        main.tf
-            resource "aws_instance" "web" {
-                ami = "ami-123456"
-                instance_type = "t2.micro"
-                tags = {
-                    Name = var.instance_name
-                }
-            }
-
-        Result: EC2 Name = web-server
 
 2. Number
+
     Use case: Number of EC2 instances.
 
     variables.tf
+
         variable "instance_count" {
             type = number
         }
 
     terraform.tfvars
+
         instance_count = 3
 
     main.tf
+
         resource "aws_instance" "web" {
             count = var.instance_count
             ami = "ami-123456"
@@ -41,17 +46,21 @@
         }
     
 3. Bool
+
     Use case: Enable/disable monitoring.
 
     variables.tf
+
         variable "enable_monitoring" {
             type = bool
         }
 
     terraform.tfvars
+
         enable_monitoring = true
 
     main.tf
+
         resource "aws_instance" "web" {
             ami = "ami-123456"
             instance_type = "t2.micro"
@@ -59,16 +68,19 @@
         }
 
 4. List
+
     A list stores multiple values of the same type.
 
     Example: Multiple availability zones.
 
         variables.tf
+
             variable "availability_zones" {
                 type = list(string)
             }
 
         terraform.tfvars
+
             availability_zones = [
                 "us-east-1a",
                 "us-east-1b",
@@ -76,6 +88,7 @@
             ]
 
         main.tf
+
             resource "aws_subnet" "private" {
                 count = length(var.availability_zones)
                 vpc_id = aws_vpc.main.id
@@ -88,17 +101,21 @@
             Subnet-3 → us-east-1c
 
 5. Map
+
     Map stores key-value pairs.
 
     Example:
+
         Environment → Instance type.
 
         variables.tf
+
             variable "instance_types" {
                 type = map(string)
             }
 
         terraform.tfvars
+
             instance_types = {
                 dev  = "t2.micro"
                 qa   = "t3.small"
@@ -106,12 +123,13 @@
             }
 
         main.tf
+
             resource "aws_instance" "web" {
                 ami = "ami-123456"
                 instance_type = var.instance_types[var.environment]
             }
 
-        If: environment = "prod"
+        If environment = "prod"
         Terraform gets: m5.large
     
 6. Object
@@ -121,6 +139,7 @@
     Example: EC2 configuration.
 
         variables.tf
+
             variable "server_config" {
                 type = object({
                     name          = string
@@ -131,6 +150,7 @@
             }
 
         terraform.tfvars
+
             server_config = {
                 name          = "web"
                 instance_type = "t3.medium"
@@ -139,6 +159,7 @@
             }
 
         main.tf
+
             resource "aws_instance" "web" {
                 ami = "ami-123456"
                 instance_type = var.server_config.instance_type
@@ -149,6 +170,7 @@
             }
 
 7. Tuple
+
     Tuple is like a list, but: order matters, each element can have different types
 
     Example: ["web",3,true]
@@ -159,6 +181,7 @@
         index 2 → bool
 
     variables.tf
+
         variable "server_details" {
             type = tuple([
                 string,
@@ -168,9 +191,11 @@
         }
 
     terraform.tfvars
+
         server_details = ["web-server",3,true]
 
     main.tf
+
         resource "aws_instance" "web" {
             count =var.server_details[1]
             ami ="ami-123456"
@@ -179,6 +204,7 @@
 
 
 8. Set
+
     Set is a collection of unique values.
     
     Difference from list: Allows duplicates.
@@ -199,6 +225,7 @@
         ]
 
     main.tf
+    
         Example security group rules:
 
         resource "aws_security_group" "example" {
