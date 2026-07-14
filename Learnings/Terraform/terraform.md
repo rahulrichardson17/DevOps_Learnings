@@ -1,0 +1,1537 @@
+# Terraform Notes
+
+## 1. What is Terraform?
+
+Terraform is an Infrastructure as Code (IaC) tool by HashiCorp. Instead of creating infrastructure manually through AWS Console, Azure Portal, or GCP Console, we write code.
+
+Example: Instead of manually creating EC2, VPC, Subnets, IAM, S3
+
+**Benefits**
+
+Version Control Repeatable Automation No manual errors Reusable Multi-cloud
+
+## 2. Infrastructure as Code (IaC)
+
+Infrastructure becomes code.
+
+**Advantages**
+
+Git history Rollback Peer review Automation Consistency
+
+## 3. Terraform Workflow
+
+Write Code
+
+```hcl
+↓
+terraform init
+↓
+terraform validate
+↓
+terraform plan
+↓
+terraform apply
+↓
+terraform destroy
+```
+
+**terraform init**
+
+Downloads Provider plugins Initializes backend Creates .terraform folder Run once.
+
+```hcl
+terraform validate
+```
+
+Checks syntax. Doesn't create resources.
+
+```hcl
+terraform fmt
+```
+
+Formats code.
+
+```hcl
+terraform plan
+```
+
+Shows
+
++ Create ~ Update - Destroy
+
+Nothing changes.Just preview.
+
+```hcl
+terraform apply
+```
+
+Actually creates resources.
+
+```hcl
+terraform destroy
+```
+
+Deletes infrastructure.
+
+## 4. Providers
+
+AWS Provider, Azure Provider, Google Provider
+
+**Example**
+
+```hcl
+provider "aws" {
+    region="ap-south-1"
+}
+```
+
+Terraform doesn't know AWS API. AWS Provider knows.
+
+Can Terraform create Azure and AWS together? Yes
+
+## 5. Resources
+
+Everything Terraform creates is Resource.
+
+```hcl
+resource "aws_instance" "web" {
+
+}
+```
+
+## 6. DataTypes
+
+```hcl
+variable "instance_type" {
+    type = String
+}
+
+Use: instance_type = var.instance_type
+```
+
+**Types**
+
+string number bool list map object tuple set For more refer file variables.txt
+
+## 7. Locals
+
+Locals are named expressions that store values inside a Terraform module. Instead of writing the same expression multiple times, define it once inside locals and reuse it.
+
+**Without Locals**
+
+```hcl
+resource "aws_instance" "web1" {
+    tags = {
+        Name = "${var.project}-${var.environment}-web"
+    }
+}
+
+resource "aws_security_group" "web" {
+    tags = {
+        Name = "${var.project}-${var.environment}-web"
+    }
+}
+```
+
+**With Locals**
+
+```hcl
+locals {
+    common_name = "${var.project}-${var.environment}-web"
+}
+
+resource "aws_instance" "web1" {
+    tags = {
+        Name = local.common_name
+    }
+}
+
+resource "aws_security_group" "web" {
+    tags = {
+        Name = local.common_name
+    }
+}
+```
+
+key_note: we define using locals, but while accessing we access it with local local.<name> local.common_name
+
+Why use locals? To avoid repeating expressions, improve readability, centralize configuration, and make code easier to maintain.
+
+Difference between variable and local? Variable: Input from user. Local: Calculated value inside module.
+
+Can locals be overridden? No. Variables can. Locals cannot.
+
+Can local reference variable? Yes.
+
+Can local reference another local? Yes
+
+Can local reference output? No. Outputs are for exposing values outside the module after evaluation. Locals cannot reference outputs because outputs are not inputs to the module.
+
+Can local reference resource? Yes, if Terraform can determine the dependency correctly. However, this is less common. Locals are most valuable for computed values derived from variables and constants rather than storing resource attributes.
+
+Can locals contain loops? Yes.
+
+```hcl
+locals {
+    instance_names = [
+        for i in range(3):
+
+        "web-${i}"
+    ]
+
+}
+```
+
+Can locals call functions? Yes. Any Terraform built-in function.
+
+Where do companies usually keep locals? locals.tf
+
+**Some teams separate them further**
+
+locals.tf locals_tags.tf locals_network.tf locals_iam.tf
+
+Why not use variables everywhere? Variables are for values supplied from outside the module (users, .tfvars, CLI, environment variables). Locals are for derived or reusable values within the module. If a value shouldn't be configurable, use a local instead of a variable.
+
+Can local contain complex objects? Yes. Lists,Maps,Objects,Tuples,Sets
+
+What happens if two resources use the same local? Terraform computes the local expression once for the module context, and every reference gets the same value. This avoids repeating the expression and keeps the configuration consistent.
+
+Local Can Store Lists
+
+```hcl
+locals {
+    availability_zones = [
+        "us-east-1a",
+        "us-east-1b",
+        "us-east-1c"
+    ]
+}
+use: availability_zone = local.availability_zones[0]
+```
+
+The above returns only the first element. if we want to use all tf doesnt iterate over a list.
+
+For creating multiple resources, count and for_each are the most common.
+
+Can you directly assign a list to availability_zone? No. availability_zone expects a single string, not a list.
+
+Example: USing count
+
+```hcl
+locals {
+    availability_zones = [
+        "us-east-1a",
+        "us-east-1b",
+        "us-east-1c"
+    ]
+
+    cidrs = [
+        "10.0.1.0/24",
+        "10.0.2.0/24",
+        "10.0.3.0/24"
+    ]
+}
+
+resource "aws_subnet" "private" {
+    count = length(local.availability_zones)
+    vpc_id = aws_vpc.main.id
+    availability_zone = local.availability_zones[count.index]
+    cidr_block        = local.cidrs[count.index]
+}
+```
+
+Here you dont need multiple counts for availability_zone and  cidr_block Because count belongs to the resource, not to an individual attribute.
+
+A resource can have only one count (or one for_each), because that controls how many copies of the entire resource are created.
+
+Since you're using the same count.index for both lists, they must have the same number of elements.
+
+What if the lengths don't match?
+
+```hcl
+availability_zones = [
+    "us-east-1a",
+    "us-east-1b",
+    "us-east-1c"
+]
+cidrs = [
+    "10.0.1.0/24",
+    "10.0.2.0/24"
+]
+```
+
+count is still 3 because it's based on availability_zones. Terraform will fail with an index out of range error.
+
+Example: Using for_each
+
+```hcl
+locals {
+    availability_zones = [
+        "us-east-1a",
+        "us-east-1b",
+        "us-east-1c"
+    ]
+}
+
+resource "aws_instance" "server" {
+    for_each = toset(local.availability_zones)
+
+    ami           = "ami-123456"
+    instance_type = "t2.micro"
+    availability_zone = each.value
+}
+```
+
+Local Can Store Maps Example: Map of string
+
+```hcl
+locals {
+    instance_type = {
+        dev="t2.micro"
+        qa="t3.small"
+        prod="m5.large"
+    }
+}
+use: instance_type = local.instance_type[var.environment]
+```
+
+Example: map of objects
+
+```hcl
+locals {
+    subnets = {
+        subnet1 = {
+            az   = "us-east-1a"
+            cidr = "10.0.1.0/24"
+        }
+        subnet2 = {
+            az   = "us-east-1b"
+            cidr = "10.0.2.0/24"
+        }
+    }
+}
+
+resource "aws_subnet" "private" {
+    for_each = local.subnets
+    availability_zone = each.value.az
+    cidr_block        = each.value.cidr
+}
+```
+
+Local Can Store Objects
+
+```hcl
+locals {
+    database = {
+        engine="postgres"
+        version="15"
+        port=5432
+    }
+}
+```
+
+**Use**
+
+```hcl
+engine = local.database.engine
+port = local.database.port
+```
+
+Local Can Use Functions
+
+Uppercase
+
+```hcl
+locals {
+    project = upper(var.project)
+}
+```
+
+Trim
+
+```hcl
+locals {
+    bucket = lower(var.bucket_name)
+}
+```
+
+Join
+
+```hcl
+locals {
+    name = join("-",[
+```
+
+var.project, var.environment,
+
+```hcl
+"web"
+```
+
+])
+
+```hcl
+}
+```
+
+Replace
+
+```hcl
+locals {
+    app = replace(var.name," ","-")
+}
+```
+
+Local Can Use Expressions
+
+```hcl
+locals {
+    is_prod = var.environment =="prod"
+}
+
+Use: count = local.is_prod ? 3 :1
+```
+
+**Locals are module-scoped**
+
+A local value is available only inside the module where it is declared. One module cannot directly access another module's locals.
+
+| Item        | Scope                         |
+| ----------- | ----------------------------- |
+| Variable    | Module scoped                 |
+| Local       | Module scoped                 |
+| Resource    | Module scoped                 |
+| Data source | Module scoped                 |
+| Output      | Exposes values outside module |
+
+Are Terraform locals global? No. Locals are scoped to the module where they are declared. A child module cannot directly access the parent's locals or variables. Values must be passed explicitly using module input variables. Similarly, child modules expose values using outputs.
+
+If we have two local files in a same module, tf treats it as single one, it basically merges the both.
+
+Important: Local names must be unique inside a module
+
+## 8. Outputs
+
+Terraform outputs expose values from your Terraform configuration after resources are created.
+
+How do I get important information about the infrastructure Terraform created?
+
+**Examples**
+
+EC2 public IP Load Balancer DNS name RDS endpoint VPC ID Subnet IDs Terraform creates resources internally, but outputs allow you to retrieve and share those values.
+
+main.tf
+
+```hcl
+resource "aws_instance" "web" {
+    ami = "ami-123456"
+    instance_type = "t3.micro"
+}
+```
+
+After creation,Terraform knows But unless you expose them, you don't easily get them.
+
+outputs.tf
+
+```hcl
+output "instance_id" {
+    value = aws_instance.web.id
+}
+```
+
+Output Components
+
+**A Terraform output has several arguments**
+
+1. Value Mandatory argument. It defines what value should be displayed.
+
+2. Description Optional. Used for documentation.
+
+3. Sensitive (Very important interview topic.) Used to hide sensitive values.
+
+```hcl
+output "instance_id" {
+    value = aws_instance.web.id
+    sensitive = true
+}
+```
+
+The value is still stored in Terraform state. It only prevents displaying it in CLI output.
+
+4. depends_on Forces Terraform to wait for another resource. rarely used bcz, Usually Terraform automatically understands dependencies.
+
+**Output Types**
+
+**Outputs can return**
+
+String
+
+```hcl
+output "region" {
+    value = var.region
+}
+```
+
+us-east-1
+
+Number
+
+```hcl
+output "instance_count" {
+    value = length(aws_instance.web)
+}
+```
+
+Boolean
+
+List
+
+```hcl
+resource "aws_instance" "web" {
+    count = 3
+    ami = "ami-12345"
+    instance_type="t3.micro"
+}
+
+output "instance_ids" {
+    value = aws_instance.web[*].id
+}
+```
+
+["i-111","i-222"]
+
+Map
+
+```hcl
+output "instance_details" {
+    value = {
+        id = aws_instance.web.id
+        private_ip = aws_instance.web.private_ip
+    }
+}
+
+{
+    id="i-123"
+    private_ip="10.0.1.10"
+}
+```
+
+Object
+
+```hcl
+output "database_info" {
+    value = {
+        endpoint = aws_db_instance.db.endpoint
+        port = aws_db_instance.db.port
+        engine = aws_db_instance.db.engine
+    }
+}
+
+{
+    endpoint="mysql.xxxx.amazonaws.com"
+    port=3306
+    engine="mysql"
+}
+```
+
+Set
+
+store output: terraform output -json
+
+When do you use terraform output -json?
+
+```hcl
+terraform output -json returns Terraform outputs in machine-readable JSON format. 
+```
+
+It's commonly used in automation, such as CI/CD pipelines, shell scripts, Ansible, or other tools that need to consume Terraform outputs programmatically. For a single string value,
+
+```hcl
+terraform output -raw <output_name> is usually simpler, while -json is preferred 
+```
+
+when multiple outputs or structured data need to be processed.
+
+Where are output values stored? Terraform stores outputs inside: terraform.tfstate
+
+Can output values be used by another module? Yes
+
+Can we hide outputs? Yes,But it does not encrypt.
+
+Difference between terraform output and terraform show?
+
+```hcl
+terraform output, Shows only outputs.
+terraform show,Shows entire Terraform state.
+```
+
+How do CI/CD pipelines consume Terraform outputs?
+
+```hcl
+terraform output -json > output.json
+```
+
+You created VPC in one Terraform project and EKS in another project. How will EKS get VPC details? Use remote state.
+
+Example: VPC project
+
+```hcl
+output "vpc_id" {
+    value=aws_vpc.main.id
+}
+```
+
+**EKS project**
+
+```hcl
+data "terraform_remote_state" "vpc" {
+    backend="s3"
+    config={
+        bucket="terraform-state"
+        key="vpc/terraform.tfstate"
+        region="us-east-1"
+    }
+}
+use: vpc_id=data.terraform_remote_state.vpc.outputs.vpc_id
+```
+
+## 9. Data Sources
+
+A Data Source allows Terraform to read information about existing infrastructure that is not created by the current Terraform configuration.
+
+**Think of it this way**
+
+Resource → Creates or manages infrastructure. Data Source → Reads existing infrastructure. Data sources are read-only. Terraform does not create, update, or delete them.
+
+Resource vs Data Source
+
+| Resource                  | Data Source                                              |
+| ------------------------- | -------------------------------------------------------- |
+| Creates infrastructure    | Reads existing infrastructure                            |
+| Can update infrastructure | Cannot modify anything                                   |
+| Managed by Terraform      | Managed outside the current configuration (or elsewhere) |
+| Stored in Terraform state | Only stores fetched values in state for reference        |
+| Uses `resource` block     | Uses `data` block                                        |
+
+**Syntax**
+
+```hcl
+data "<provider>_<resource_type>" "<local_name>" {
+```
+
+arguments
+
+```hcl
+}
+```
+
+Read an existing VPC.
+
+```hcl
+data "aws_vpc" "existing" {
+    id = "vpc-123456"
+}
+```
+
+How Data Sources Work Terraform Apply
+
+|
+
+Read Existing AWS Resource
+
+|
+
+Store Attributes
+
+|
+
+Use Those Attributes
+
+|
+
+Create New Resources
+
+Are Data Sources stored in the state file? Terraform stores the fetched attribute values in the state so other resources can reference them. However, Terraform does not manage the lifecycle of those external resources.
+
+Can Data Sources depend on Resources? Terraform builds the dependency graph and reads the data source after the VPC exists.
+
+Does a Data Source make API calls? yes, data "aws_ami" "latest" Terraform queries AWS (for example, the EC2 API) to retrieve the matching AMI.
+
+Why use aws_ami Data Source instead of hardcoding the AMI?
+
+**Because**
+
+AMIs change frequently. Avoids outdated image IDs. Ensures deployments use the latest approved image. Reduces manual maintenance.
+
+What happens if a Data Source cannot find a resource? Terraform fails during the planning phase with an error indicating that no matching resource was found.
+
+What is the difference between aws_subnet and aws_subnets? Returns a single subnet.
+
+```hcl
+data "aws_subnet" "private" {
+    id = "subnet-123"
+}
+```
+
+Returns multiple subnet IDs matching filters.
+
+```hcl
+data "aws_subnets" "private" {
+     filter {
+         name = "vpc-id"
+         values = ["vpc-123"]
+     }
+ } 
+```
+
+Your organization has one Terraform project for networking and another for application deployment. Which approach would you use: Data Sources or Remote State?
+
+**It depends on how the infrastructure is managed**
+
+Use Data Sources when the infrastructure already exists in AWS and can be identified by IDs, names, or tags (for example, an existing VPC or IAM role).
+
+Use terraform_remote_state when another Terraform project owns the infrastructure and intentionally exposes values through outputs.
+
+**Example**
+
+Existing manually created VPC → data "aws_vpc"... VPC created by another Terraform project → terraform_remote_state to consume its outputs.
+
+## 10. Terraform State
+
+Why does Terraform need a state file? Terraform State is a file that stores the current mapping between your Terraform configuration and the real infrastructure.
+
+Think of it as Terraform's database.
+
+**It tells Terraform**
+
+What resources exist Which resources Terraform manages Their IDs Their attributes Dependencies Outputs Metadata Default file: terraform.tfstate
+
+Why Terraform Needs State Imagine you create an EC2 instance. Next time you run Terraform, how does it know this EC2 already exists? Because it reads the state file. Thats why it was so important.
+
+Without state, It would have to recreate everything.
+
+Terraform Configuration (.tf)
+
+|
+
+Read State File
+
+|
+
+Compare with AWS
+
+|
+
+Generate Execution Plan
+
+|
+
+Apply Changes
+
+|
+
+Update State File
+
+What Does State Store?
+
+**Terraform State stores things like**
+
+Resource Name: aws_instance.web Resource ID: i-123456 Public IP: 54.xx.xx.xx Private IP: 10.0.1.10 Availability Zone: us-east-1a Tags Metadata Dependencies It does not just store your .tf code. It stores real infrastructure information.
+
+It always, Compares desired with current state.
+
+**State Refresh**
+
+Suppose someone manually changes the EC2 in AWS, their will be a difference in the config and aws infra, Terraform State is now outdated.
+
+When you run: terraform plan Terraform refreshes resource information from the provider (unless refresh is disabled), updates its in-memory view, compares it with the configuration, and proposes changes. If the configuration still says t3.micro, the plan will typically propose changing the instance back to t3.micro.
+
+If someone manually changes an EC2 instance from t3.micro to t3.large, will terraform plan detect it? Yes. By default, terraform plan performs a refresh by querying the provider for the current state of the infrastructure. It detects that the actual EC2 instance is t3.large while the configuration specifies t3.micro, reports the drift in the execution plan, and proposes changing it back to t3.micro during terraform apply.
+
+State Refresh = The process of updating Terraform's knowledge of the real infrastructure. Drift Detection = The result of comparing the refreshed state with your Terraform configuration.
+
+Refresh happens first. Drift detection happens because of the refresh.
+
+Step 1: State Refresh When you run: terraform plan Terraform calls the AWS API. AWS says: Current instance type = t3.large Terraform refreshes its internal state to match AWS. This step is State Refresh.
+
+Step 2: Drift Detection
+
+**Now Terraform compares**
+
+Desired (Code):  t3.micro Actual (AWS):   t3.large Difference found. This difference is called Drift.
+
+Can drift detection happen without refresh? Practically, no. Terraform must first know the current infrastructure before it can compare it with your configuration.
+
+## 11. Local State & Remote State
+
+**Local State**
+
+terraform.tfstate stored locally. Only one person has it.
+
+**Remote State**
+
+Enterprise companies rarely use local state. They use s3 in aws
+
+**S3 Backend Example**
+
+```hcl
+terraform {
+    backend "s3" {
+        bucket = "company-terraform-state"
+        key = "prod/network/terraform.tfstate"
+        region = "us-east-1"
+        dynamodb_table = "terraform-locks"
+    }
+}
+```
+
+Now state file is stored in the s3 bucket.
+
+Why Remote State? to avoid difference b/w infra when multiple teams were working, chances od changes might be drift.
+
+**Remote state provides**
+
+Single source of truth Team collaboration Backup Versioning Locking Security
+
+## 12. State Locking
+
+both developers working on the same code and they push the code and to maintain same infra we use, remote state to overcome that, now here if one developer push the code and changes are applying, and same time other developer also have pushed the code in that case state Locking gets applied and and once changes were applied then locks get released and other user changes gets applied.
+
+For Locking we use dynamodb_table
+
+State Versioning Enable S3 Versioning.
+
+**Benefits**
+
+Recover deleted state Recover corrupted state Audit history Rollback if needed
+
+Sensitive Data in State Even if you write,sensitive = true State file still contains values
+
+**Therefore**
+
+Encrypt S3 bucket Restrict IAM permissions Never commit terraform.tfstate to Git Use secure remote backends
+
+1. Show State
+
+```hcl
+terraform show
+```
+
+Displays the human-readable contents of the current state.
+
+2. List Resources
+
+```hcl
+terraform state list
+```
+
+3. Show One Resource
+
+```hcl
+terraform state show aws_instance.web
+```
+
+4. Remove Resource from State
+
+```hcl
+terraform state rm aws_instance.web
+```
+
+Removes only from Terraform state. AWS resource still exists. Terraform no longer manages it.
+
+What happens if the state file is deleted?
+
+**If no backup exists**
+
+Infrastructure still exists. Terraform loses tracking information. You may need to import existing resources or restore the state from a backup/versioned backend.
+
+Is the state file updated after every apply? Yes.After successful changes, Terraform updates the state.
+
+Is the state file encrypted? Local state: No. Remote S3: Only if encryption is enabled (for example, SSE-S3 or SSE-KMS).
+
+Why shouldn't we store the state in Git?
+
+**Because it may contain**
+
+Passwords Private IPs Resource IDs Secrets Infrastructure metadata Use a secure remote backend instead.
+
+Why use S3 with DynamoDB? S3: Stores the state. DynamoDB: Provides state locking to prevent concurrent modifications.
+
+What is state locking? A mechanism that prevents multiple Terraform operations from modifying the same state at the same time.
+
+What happens if two users run terraform apply simultaneously without locking? They can overwrite each other's state updates, leading to inconsistent or corrupted state and unpredictable infrastructure changes.
+
+What is state drift? State drift occurs when infrastructure is changed outside Terraform (for example, through the AWS Console or CLI), causing the actual infrastructure to differ from the Terraform configuration and/or recorded state.
+
+How do you recover from a corrupted state file?
+
+**Possible approaches**
+
+Restore a previous version from S3 versioning or backups. Re-import resources using terraform import. Repair state carefully using terraform state commands.
+
+Can Terraform work without a state file? Terraform relies on state to track managed infrastructure. read-only operations (such as terraform validate) that don't require state.
+
+What is the difference between Backend and Remote Backend? Backend is the mechanism Terraform uses to store and manage its state. Local backend stores the state file on the local machine (default). Remote backend stores the state in a shared remote location like S3, Azure Blob Storage, GCS, or Terraform Cloud, enabling collaboration and centralized state management.
+
+## 13. Modules
+
+A Terraform module is a container for Terraform resources that can be reused. Instead of writing the same EC2 configuration multiple times, write it once as a module and reuse it.
+
+Same blueprint reused. Terraform modules work exactly the same way.
+
+Every Terraform Configuration is a Module
+
+**Even this**
+
+main.tf variables.tf outputs.tf is a module. Terraform calls it the Root Module
+
+Types of Modules 1. Root Module The directory where you run 2. Child Module Called from another module. Root module calls EC2 module.
+
+**Module Sources**
+
+Terraform modules can come from different locations.
+
+Local Module
+
+```hcl
+module "ec2" {
+    source="./modules/ec2"
+}
+```
+
+Most common while developing.
+
+GitHub Module
+
+```hcl
+module "vpc" {
+    source="git::https://github.com/company/vpc-module.git"
+}
+```
+
+Used in enterprises.
+
+Versioned Git Tag
+
+```hcl
+module "vpc" {
+    source="git::https://github.com/company/vpc-module.git?ref=v1.2.0"
+}
+```
+
+Always pin versions.
+
+Terraform Registry
+
+```hcl
+module "vpc" {
+    source="terraform-aws-modules/vpc/aws"
+    version="5.0.0"
+}
+```
+
+Popular open-source modules.
+
+Can Modules have Providers? Yes. Modules inherit provider configurations from the root module by default, but you can also explicitly pass provider configurations or use multiple provider aliases when needed.
+
+Can child modules directly access variables from the parent module? No. Variables must be explicitly passed to child modules as inputs.
+
+Can parent modules directly access resources inside child modules? the child module must expose it, Then the parent accesses it.
+
+Your company has 50 applications. How would you avoid duplicating Terraform code? Create reusable modules for common infra Each application reuses these modules by supplying different input variables (for example, environment, instance type, CIDR ranges, and tags), reducing duplication and ensuring consistent infrastructure standards.
+
+## 14. Dependency Graph
+
+A Dependency Graph is an internal graph built by Terraform that determines: Which resources depend on others The correct order of creation Which resources can be created in parallel Which resources must wait Think of it as Terraform's execution plan.
+
+Why Do We Need a Dependency Graph? Imagine creating an EC2 instance.
+
+**To create EC2, AWS needs**
+
+VPC Subnet Security Group The Dependency Graph determines this order automatically.
+
+How Terraform Builds the Graph
+
+**Terraform reads**
+
+Resources Variables Data Sources Outputs Modules References
+
+Implicit Dependency Terraform automatically detects dependencies when one resource references another.No need to write anything extra.
+
+Explicit Dependency (depends_on) Sometimes there is no direct reference, but a dependency still exists.
+
+```hcl
+resource "aws_instance" "web" {
+    ami = "ami-123"
+    instance_type = "t3.micro"
+    depends_on = [aws_iam_role_policy_attachment.policy]
+}
+```
+
+| Implicit                 | Explicit                |
+| ------------------------ | ----------------------- |
+| Automatically detected   | Manually defined        |
+| Uses resource references | Uses `depends_on`       |
+| Preferred                | Use only when necessary |
+
+Destroy Dependency Graph tf uses A Directed Acyclic Graph (DAG). Terraform reverses the dependency order during destroy.
+
+Circular Dependency Resource A
+
+```hcl
+↓
+```
+
+depends on
+
+```hcl
+↓
+```
+
+Resource B
+
+```hcl
+↓
+```
+
+depends on
+
+```hcl
+↓
+```
+
+Resource A
+
+Terraform cannot decide what to create first.Terraform fails.
+
+Graph Visualization: terraform graph
+
+```hcl
+terraform graph | dot -Tpng > graph.png
+```
+
+Terraform can build the dependency graph without the state file?? Yes,Terraform builds the graph primarily from the configuration and resource references. It also uses the state and provider information to understand existing managed resources and generate an accurate execution plan.
+
+## 15. Expressions
+
+Terraform evaluates expressions and assigns the resulting value to arguments.
+
+```hcl
+Argument = Expression
+```
+
+Comparison Expressions == != > < >= <=
+
+Logical Expressions &&
+
+||
+
+!
+
+Conditional Expressions condition ? true_value : false_value
+
+Function Expressions Terraform has built-in functions. length, upper, join("-",["app","prod"]) app-prod
+
+split(",", "a,b,c") ["a","b","c"]
+
+lookup(var.tags,"Environment")
+
+merge
+
+```hcl
+(
+    {
+        Environment="prod"
+```
+
+},
+
+```hcl
+    {
+        Team="DevOps"
+    }
+)
+
+{
+Environment="prod"
+Team="DevOps"
+}
+```
+
+You have 3 environments: dev, test, prod. Production needs 5 EC2 instances, others need 1. How will you implement this without duplicate code?
+
+```hcl
+count = var.environment == "prod" ? 5 : 1
+```
+
+Splat Expressions
+
+Used to extract attributes from multiple resources. aws_instance.web[*].id
+
+Dynamic Expressions
+
+Used to create repeated nested blocks.
+
+**Without dynamic**
+
+```hcl
+ingress {
+    from_port=80
+}
+
+ingress {
+    from_port=443
+}
+```
+
+**With dynamic**
+
+```hcl
+dynamic "ingress" {
+    for_each = var.rules
+    content {
+        from_port = ingress.value
+    }
+}
+```
+
+## 16. Meta Arguments
+
+Meta-arguments are special arguments supported by Terraform itself (not by AWS or other providers).
+
+They control Terraform's behavior, not the cloud resource. count = 3 is not an AWS EC2 property. AWS doesn't know what count means. Terraform reads it and decides to create 3 EC2 instances.
+
+| Meta-Argument | Purpose                               |
+| ------------- | ------------------------------------- |
+| `count`       | Create multiple copies                |
+| `for_each`    | Create multiple unique resources      |
+| `depends_on`  | Explicit dependency                   |
+| `lifecycle`   | Control create/update/delete behavior |
+| `provider`    | Select a provider configuration       |
+| `providers`   | Pass providers to modules             |
+
+## 17. Lifecycle
+
+Controls how Terraform manages resources.
+
+create_before_destroy
+
+**Terraform**
+
+Destroy
+
+```hcl
+↓
+```
+
+Create Can cause downtime.
+
+**Enable**
+
+```hcl
+lifecycle {
+    create_before_destroy = true
+}
+```
+
+Create New
+
+```hcl
+↓
+```
+
+Switch
+
+```hcl
+↓
+```
+
+Destroy Old
+
+Zero downtime (where the provider supports having both resources temporarily).
+
+prevent_destroy
+
+Protects resources.
+
+**Example**
+
+```hcl
+lifecycle {
+    prevent_destroy = true
+}
+```
+
+If someone runs: terraform destroy Terraform fails.
+
+**Useful for**
+
+Production Database S3 Bucket KMS Key
+
+When do we use provider meta-argument? When multiple provider configurations exist (for example, multiple AWS regions or accounts), and a specific resource should use a particular provider.
+
+Can ignore_changes ignore everything? You can ignore multiple attributes, and Terraform also supports
+
+```hcl
+ignore_changes = all in some situations. However, using all is 
+```
+
+rarely recommended because Terraform will stop managing changes to that resource's attributes, reducing Infrastructure-as-Code control.
+
+Does depends_on affect destroy order? Yes.Terraform uses the dependency graph for both creation and destruction. Resources are destroyed in the reverse dependency order.
+
+Your Auto Scaling Group changes desired_capacity automatically based on CloudWatch alarms. Every terraform plan wants to change it back. How will you solve this?
+
+```hcl
+lifecycle {
+    ignore_changes = [
+```
+
+desired_capacity
+
+```hcl
+    ]
+}
+```
+
+This allows Auto Scaling to manage desired_capacity without Terraform continuously trying to revert it.
+
+## 18. Workspaces
+
+Terraform Workspaces allow you to use the same Terraform configuration to manage multiple environments while maintaining separate state files.
+
+```hcl
+Workspace = Separate state for the same Terraform code
+
+terraform workspace show
+
+terraform workspace new dev
+
+terraform workspace list
+
+terraform workspace select dev
+```
+
+terraform.workspace
+
+```hcl
+locals {
+    environment = terraform.workspace
+}
+
+terraform workspace select dev
+terraform apply -var-file=dev.tfvars
+```
+
+## 19. Provisioners
+
+Provisioners execute scripts or commands on the local machine or remote resources after creation (or before destruction). They are intended for bootstrapping or integration tasks but are generally discouraged in favor of cloud-init, user data, or configuration management tools.
+
+Difference between local-exec and remote-exec?
+
+| local-exec                      | remote-exec                             |
+| ------------------------------- | --------------------------------------- |
+| Runs on local machine/CI runner | Runs on the remote resource             |
+| No SSH required                 | Requires SSH (Linux) or WinRM (Windows) |
+| Executes local commands         | Executes commands inside the VM         |
+
+Difference between file and remote-exec?
+
+| file                         | remote-exec                  |
+| ---------------------------- | ---------------------------- |
+| Copies files                 | Executes commands            |
+| Needs connection             | Needs connection             |
+| Doesn't execute copied files | Can execute the copied files |
+
+Why do most companies avoid Provisioners? They make Terraform imperative, depend on connectivity (SSH/WinRM), are harder to recover from failures, and are less reliable than user data, cloud-init, Packer, or configuration management tools.
+
+## 20. Import
+
+**Terraform Import is used when**
+
+A resource already exists in the cloud, but Terraform is not managing it.
+
+```hcl
+terraform import aws_instance.web i-0ab12345
+```
+
+Import does NOT create resources Very important.
+
+```hcl
+terraform import
+```
+
+does NOT
+
+create update destroy
+
+It only updates the state.
+
+## 21. Taint / Replace
+
+```hcl
+terraform taint
+
+terraform apply -replace=RESOURCE
+```
+
+Terraform Taint (legacy approach) is used when a resource is unhealthy or you want a fresh one, even though the configuration hasn't changed. It marks the resource as tainted in the state, meaning Terraform will destroy and recreate it during the next terraform apply. It does not recreate the resource immediately.
+
+Terraform Replace is the modern replacement for taint. It tells Terraform to destroy and recreate a specific managed resource in the current apply operation, even if there are no configuration changes. Unlike taint, it does not permanently mark the state first—it simply performs the replacement as part of that apply.
+
+```hcl
+terraform apply -replace=aws_instance.web
+```
+
+| Feature     | Think of it as                                     |
+| ----------- | -------------------------------------------------- |
+| **Import**  | **Adopt** an existing resource into Terraform.     |
+| **Taint**   | **Mark** a resource for recreation later (legacy). |
+| **Replace** | **Recreate** a resource now (recommended).         |
+
+## 22. Secrets Management
+
+Securely storing, accessing, and using sensitive information (passwords, API keys, tokens, private keys, database credentials, etc.) without exposing them in Terraform code, state, logs, or version control.
+
+**Examples of secrets**
+
+AWS Access Keys Database Passwords SSH Private Keys API Tokens GitHub PAT Kubernetes Secrets SSL Private Keys
+
+```hcl
+sensitive = true
+```
+
+## Questions
+
+Does Terraform execute .tf files in order?
+
+No, It loads all .tf files in the directory, builds a dependency graph, and then decides execution order based on dependencies.
+
+The filenames are only for organization. They have no execution order.
+
+~> meaning of this It is called the pessimistic version constraint.
+
+```hcl
+required_version = "~> 1.15"
+```
+
+means >= 1.15.0 to < 2.0.0
+
+**Terraform can use**
+
+✅ 1.15.0 ✅ 1.15.4 ✅ 1.15.8 ✅ 1.16.0 ✅ 1.17.3 ✅ 1.99.0
+
+```hcl
+version = "~> 6.5.0"
+```
+
+means >= 6.5.0 to < 6.6.0 it will only take patches not the minor one.
+
+**So Terraform can use**
+
+✅ 6.5.0 ✅ 6.5.1 ✅ 6.5.8 ✅ 6.5.25 (if it exists)
+
+**But not**
+
+❌ 6.6.0 ❌ 6.7.0 ❌ 7.0.0
+
+### Q1. Why are there two ingress blocks?
+
+```hcl
+resource "aws_security_group" "security_group" {
+    name = "instance_security_group"
+
+    ingress {
+        from_port = 22
+        to_port = 22
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
+    ingress {
+        from_port = 80
+        to_port = 80
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+
+    }
+
+    egress {
+        from_port = 0
+        to_port = 0
+        protocol = "-1"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+}
+```
+
+Each ingress block defines one inbound rule. Terraform combines them into the Security Group's inbound rule set.
+
+### Q2. Why use 0.0.0.0/0?
+
+It allows access from any IPv4 address.
+
+**Suitable for**
+
+Public web servers (HTTP/HTTPS)
+
+Not recommended for: SSH in production
+
+What does protocol = "-1" mean? It means: All protocols
+
+**Examples**
+
+TCP UDP ICMP Everything is allowed.
+
+### Q3. Why are from_port = 0 and to_port = 0 used with protocol = "-1"?
+
+When protocol = "-1" (all protocols), Terraform and AWS ignore the port numbers. This combination is the standard way to define allow all outbound traffic.
+
+### Q4. Is the egress block required?
+
+Not always. AWS Security Groups default to allowing all outbound traffic when created manually. However, in Terraform it's a best practice to define the egress rule explicitly so your infrastructure is fully described in code and behaves consistently across environments.
+
+### Q5. from_port = 22 and to_port = 25 Does it allow all ports between them?
+
+Yes. It means: 22, 23, 24, 25 All these ports are allowed. Think of it as: Allow ports from X to Y (inclusive).
+
+### Q6. When AWS sees protocol = "-1" what happens??
+
+It ignores from_port and to_port are essentially placeholders. They are required by the Terraform schema, but they have no effect when protocol = "-1".
+
+### Q7. If protocol was TCP
+
+**Suppose you wrote**
+
+```hcl
+egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "tcp"
+}
+```
+
+Now AWS does not ignore the ports.
+
+This means: Allow only TCP port 0 Port 0 is a reserved port and isn't used for normal communication, so this rule is generally not useful.
+
+| Configuration                                          | Meaning                                                   |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| `from_port = 22`, `to_port = 22`                       | Only port 22                                              |
+| `from_port = 22`, `to_port = 25`                       | Ports 22, 23, 24, 25                                      |
+| `from_port = 80`, `to_port = 90`                       | Ports 80 through 90                                       |
+| `from_port = 0`, `to_port = 65535`, `protocol = "tcp"` | All TCP ports                                             |
+| `from_port = 0`, `to_port = 0`, `protocol = "-1"`      | **All protocols and all ports** (port values are ignored) |
+
+In AWS Security Groups, the protocol field defines which network protocol the rule applies to.
+
+**Common values are**
+
+| Protocol value | Meaning           | Common usage                                            |
+| -------------- | ----------------- | ------------------------------------------------------- |
+| `-1`           | **All protocols** | Allow everything                                        |
+| `tcp`          | TCP protocol      | HTTP (80), HTTPS (443), SSH (22), RDP (3389), databases |
+| `udp`          | UDP protocol      | DNS (53), DHCP, streaming, gaming                       |
+| `icmp`         | ICMP protocol     | Ping, network diagnostics                               |
+
+| Protocol Number | Protocol |
+| --------------- | -------- |
+| 6               | TCP      |
+| 17              | UDP      |
+| 1               | ICMP     |
+| 47              | GRE      |
+| 50              | ESP      |
+| 51              | AH       |
+
+### Q8. Can an EC2 instance download packages if outbound security group allows only DNS port 53?"
+
+No. DNS only resolves the domain name to an IP address. Package installation requires DNS on port 53 plus an actual connection to the repository, usually HTTPS on TCP port 443. Therefore outbound rules must allow both UDP/TCP 53 and TCP 443.
+
+### Q9. Can we restrict incoming traffic to office IPs?
+
+Yes. We restrict ingress rules using CIDR blocks. For example, SSH can be allowed only from corporate public IP ranges using /32 for a single IP or /24 for a subnet.
+
+### Q10. Can we allow EC2 downloads only from office IP?
+
+Technically yes, but it usually doesn't make sense because egress controls the destination. Package downloads go to repository servers, not office IPs. We normally allow HTTPS egress to required destinations or use controlled mechanisms like proxies or VPC endpoints.
+
+### Q11. Allow SSH only from my office IP
+
+```hcl
+Use: cidr_blocks = ["Office_Public_IP/32"]
+```
+
+Because you want exactly one IP.
+
+If they say Allow SSH from entire office network
+
+```hcl
+Use: cidr_blocks = ["Office_Network/24"]
+```
+
+because the whole office subnet can access.
+
+### Q12. What is 099720109477 in Ubuntu AMI lookup?
+
+It is Canonical's AWS account ID. We use it in the owners field to ensure Terraform selects official Ubuntu AMIs published by Canonical.
+
+### Q13. How do you avoid always taking the latest AMI?
+
+Removing most_recent is not enough because multiple AMIs may match. We either specify an exact AMI ID, filter by an exact AMI name/version, or use an approved golden AMI pipeline in production.
+
+Traditional Terraform
+
+VS Code
+
+```hcl
+│
+terraform validate
+terraform plan
+terraform apply
+│
+▼
+```
+
+AWS
+
+You run everything yourself. State is stored in S3.
+
+Terraform Enterprise
+
+VS Code
+
+```hcl
+│
+git push
+│
+▼
+```
+
+GitHub
+
+```hcl
+│
+```
+
+Webhook
+
+```hcl
+▼
+```
+
+Terraform Enterprise
+
+```hcl
+│
+```
+
+Plan Policy Checks Cost Estimation Approval Apply
+
+```hcl
+│
+▼
+```
+
+AWS
+
+You don't run terraform apply from your laptop anymore.Terraform Enterprise runs it.
