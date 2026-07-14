@@ -1218,3 +1218,298 @@ questions:
 
         The filenames are only for organization. They have no execution order.
 
+    ~> meaning of this 
+        It is called the pessimistic version constraint.
+        
+        required_version = "~> 1.15"
+        means >= 1.15.0 to < 2.0.0
+        Terraform can use:
+            ✅ 1.15.0
+            ✅ 1.15.4
+            ✅ 1.15.8
+            ✅ 1.16.0
+            ✅ 1.17.3
+            ✅ 1.99.0
+
+        version = "~> 6.5.0"
+        means >= 6.5.0 to < 6.6.0
+        it will only take patches not the minor one.
+        So Terraform can use:
+            ✅ 6.5.0
+            ✅ 6.5.1
+            ✅ 6.5.8
+            ✅ 6.5.25 (if it exists)
+
+            But not:
+            ❌ 6.6.0
+            ❌ 6.7.0
+            ❌ 7.0.0
+
+    resource "aws_security_group" "security_group" {
+        name = "instance_security_group"
+
+        ingress {
+            from_port = 22
+            to_port = 22
+            protocol = "tcp"
+            cidr_blocks = ["0.0.0.0/0"]
+        }
+
+        ingress {
+            from_port = 80
+            to_port = 80
+            protocol = "tcp"
+            cidr_blocks = ["0.0.0.0/0"]
+
+        }
+
+        egress {
+            from_port = 0
+            to_port = 0
+            protocol = "-1"
+            cidr_blocks = ["0.0.0.0/0"]
+        }
+
+    }
+
+    Q1. Why are there two ingress blocks?
+
+    Each ingress block defines one inbound rule. Terraform combines them into the Security Group's inbound rule set.
+
+    Q2. Why use 0.0.0.0/0?
+
+    It allows access from any IPv4 address.
+
+    Suitable for:
+
+    Public web servers (HTTP/HTTPS)
+
+    Not recommended for:
+
+    SSH in production
+
+    What does protocol = "-1" mean?
+
+    It means:
+
+    All protocols
+
+    Examples:
+
+    TCP
+    UDP
+    ICMP
+
+    Everything is allowed.
+
+    Why are from_port = 0 and to_port = 0 used with protocol = "-1"?
+
+    When protocol = "-1" (all protocols), Terraform and AWS ignore the port numbers. This combination is the standard way to define allow all outbound traffic.
+
+
+    Is the egress block required?
+
+    Not always. AWS Security Groups default to allowing all outbound traffic when created manually. However, in Terraform it's a best practice to define the egress rule explicitly so your infrastructure is fully described in code and behaves consistently across environments.
+
+    Question 1
+from_port = 22
+to_port   = 25
+
+Does it allow all ports between them?
+
+Yes.
+
+It means:
+
+22
+23
+24
+25
+
+All these ports are allowed.
+
+Think of it as:
+
+Allow ports from X to Y (inclusive).
+
+------
+When AWS sees:
+
+protocol = "-1"
+
+it ignores from_port and to_port.
+
+are essentially placeholders. They are required by the Terraform schema, but they have no effect when protocol = "-1".
+
+-----
+If protocol was TCP
+
+Suppose you wrote:
+
+egress {
+    from_port = 0
+    to_port   = 0
+    protocol  = "tcp"
+}
+
+Now AWS does not ignore the ports.
+
+This means:
+
+Allow only TCP port 0
+
+Port 0 is a reserved port and isn't used for normal communication, so this rule is generally not useful.
+
+-------
+| Configuration                                          | Meaning                                                   |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| `from_port = 22`, `to_port = 22`                       | Only port 22                                              |
+| `from_port = 22`, `to_port = 25`                       | Ports 22, 23, 24, 25                                      |
+| `from_port = 80`, `to_port = 90`                       | Ports 80 through 90                                       |
+| `from_port = 0`, `to_port = 65535`, `protocol = "tcp"` | All TCP ports                                             |
+| `from_port = 0`, `to_port = 0`, `protocol = "-1"`      | **All protocols and all ports** (port values are ignored) |
+
+----
+In AWS Security Groups, the protocol field defines which network protocol the rule applies to.
+Common values are:
+    | Protocol value | Meaning           | Common usage                                            |
+    | -------------- | ----------------- | ------------------------------------------------------- |
+    | `-1`           | **All protocols** | Allow everything                                        |
+    | `tcp`          | TCP protocol      | HTTP (80), HTTPS (443), SSH (22), RDP (3389), databases |
+    | `udp`          | UDP protocol      | DNS (53), DHCP, streaming, gaming                       |
+    | `icmp`         | ICMP protocol     | Ping, network diagnostics                               |
+
+-----
+    | Protocol Number | Protocol |
+    | --------------- | -------- |
+    | 6               | TCP      |
+    | 17              | UDP      |
+    | 1               | ICMP     |
+    | 47              | GRE      |
+    | 50              | ESP      |
+    | 51              | AH       |
+
+-----
+Can an EC2 instance download packages if outbound security group allows only DNS port 53?"
+
+Answer:
+
+"No. DNS only resolves the domain name to an IP address. Package installation requires DNS on port 53 plus an actual connection to the repository, usually HTTPS on TCP port 443. Therefore outbound rules must allow both UDP/TCP 53 and TCP 443."
+-----
+Question: Can we restrict incoming traffic to office IPs?
+
+Answer:
+
+Yes. We restrict ingress rules using CIDR blocks. For example, SSH can be allowed only from corporate public IP ranges using /32 for a single IP or /24 for a subnet.
+
+----------
+Question: Can we allow EC2 downloads only from office IP?
+
+Answer:
+
+Technically yes, but it usually doesn't make sense because egress controls the destination. Package downloads go to repository servers, not office IPs. We normally allow HTTPS egress to required destinations or use controlled mechanisms like proxies or VPC endpoints.
+
+This distinction between ingress source and egress destination is a very common AWS networking interview topic.
+
+-----
+| CIDR  | Meaning            | Number of IPs |
+| ----- | ------------------ | ------------- |
+| `/32` | Single IP          | 1             |
+| `/31` | Point-to-point     | 2             |
+| `/30` | Small network      | 4             |
+| `/24` | Common subnet      | 256           |
+| `/16` | Large VPC          | 65,536        |
+| `/8`  | Very large network | 16 million    |
+
+-----
+For Security Groups remember:
+
+If interviewer says:
+
+Allow SSH only from my office IP
+
+Use:
+
+cidr_blocks = ["Office_Public_IP/32"]
+
+Because you want exactly one IP.
+
+If they say:
+
+Allow SSH from entire office network
+
+Use:
+
+cidr_blocks = ["Office_Network/24"]
+
+because the whole office subnet can access.
+
+-----
+    IPv4 has 32 bits.
+
+Binary:
+
+10        .0        .0        .0
+00001010 .00000000 .00000000 .00000000
+
+<--------><--------><--------><-------->
+ 8 bits     8 bits    8 bits    8 bits
+
+Total = 32 bits
+
+Now /16 means:
+
+First 16 bits = Network
+Remaining 16 bits = Host
+
+So:
+
+Network              Host
+16 bits              16 bits
+
+00001010.00000000 | 00000000.00000000
+
+
+-----
+Object ownership options
+
+There are 3 options:
+
+1. BucketOwnerEnforced ⭐ (recommended)
+ACLs disabled
+
+Bucket owner owns everything
+
+Modern AWS best practice.
+
+2. BucketOwnerPreferred
+ACLs still enabled
+
+But bucket owner becomes owner
+when uploader uses bucket-owner-full-control ACL
+
+Example:
+
+Uploader must send:
+
+x-amz-acl: bucket-owner-full-control
+3. ObjectWriter
+
+Old behavior:
+
+Uploader owns object
+
+Example:
+
+Account B uploads:
+
+file.txt owner = Account B
+
+----------
+Q: What is 099720109477 in Ubuntu AMI lookup?
+
+"It is Canonical's AWS account ID. We use it in the owners field to ensure Terraform selects official Ubuntu AMIs published by Canonical."
+
+Q: How do you avoid always taking the latest AMI?
+
+"Removing most_recent is not enough because multiple AMIs may match. We either specify an exact AMI ID, filter by an exact AMI name/version, or use an approved golden AMI pipeline in production."

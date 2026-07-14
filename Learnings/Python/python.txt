@@ -1,0 +1,518 @@
+1)GIL
+    Global Interpreter Lock
+    Only one Python thread executes Python bytecode at a time.
+    Even on 8 CPUs. Useful for thread safety.
+
+2)Multithreading vs Multiprocessing
+    Multiple threads in one process. It uses Shared memory.
+    Best for API calls, File download, Database calls
+
+    Multiple processes. It uses the Separate memory. Uses multiple CPU cores.
+    Best for Image processing, Video encoding, Machine learning.
+
+    Multithreading uses multiple threads within the same process, 
+    sharing memory, and is best for I/O-bound tasks such as API calls or 
+    file downloads. Multiprocessing uses multiple independent processes with 
+    separate memory, allowing true parallel execution across CPU cores, making 
+    it ideal for CPU-bound tasks like image processing or data analysis.
+
+3)Virtual Environment
+    Separate Python environments.
+    python -m venv env
+    source env/bin/activate
+
+    Different projects need different package versions.
+
+4)pip
+    Python package manager.
+
+5)What is __init__?
+    __init__ is the constructor in Python. It is automatically called 
+    when an object is created and is used to initialize the object's attributes.
+
+
+6)OOPS
+    Encapsulation: Keep data and methods together inside one class.
+        Everything related to a bank account is inside one class.
+
+    Abstraction – Hiding implementation details and showing only the essential functionality to the user.
+
+    Polymorphism – The ability of the same method or interface to behave differently for different objects.
+
+    Inheritance – The mechanism by which one class acquires the properties (attributes) and behaviors (methods) of another class. It promotes code reusability and allows the child class to extend or modify the parent's functionality.
+
+7)Synchronous vs Asynchronous
+    Synchronous execution waits for one task to complete before starting the 
+    next. Asynchronous execution allows the program to switch to other tasks 
+    while waiting for I/O operations, improving throughput and responsiveness. 
+    
+    Async is especially useful for APIs, database calls, and network requests.
+
+    Async:
+        import asyncio
+
+        async def api_call():
+            print("API Started")
+            await asyncio.sleep(3)
+            print("API Finished")
+
+        async def other_task():
+            for i in range(3):
+                print(f"Working {i}")
+                await asyncio.sleep(1)
+
+        async def main():
+            await asyncio.gather(
+                api_call(),
+                other_task()
+            )
+
+        asyncio.run(main())
+
+    sync:
+         import time
+
+        def api_call():
+            print("Calling API...")
+            time.sleep(3)      # Simulate API delay
+            return "Data received"
+
+        def get_data():
+            data = api_call()
+            print(data)
+
+        print("Start")
+        get_data()
+        print("End")
+
+    Sync = Wait → Then continue
+    Async = Start → Don't wait → Do other work → Come back when ready
+
+8)decorator
+    A decorator is a function that wraps another function to add extra behavior without modifying the original function's code.
+    It is commonly used for logging, authentication, authorization, caching, and performance measurement.
+
+    logger is a function that accepts another function as an argument.
+
+    def logger(func):
+
+        def wrapper():
+            print("Logging Started")
+            func()
+            print("Logging Finished")
+
+        return wrapper
+
+
+    @logger
+    def login():
+        print("Login Successful")
+
+9)*args vs **kwargs
+
+    The easiest way to remember is:
+    *args → Multiple positional arguments → Stored as a tuple
+    **kwargs → Multiple keyword arguments → Stored as a dictionary
+
+    def add(*args):
+        total = 0
+
+        for num in args:
+            total += num
+
+        print(total)
+
+    add(10, 20)
+    add(10, 20, 30)
+    add(10, 20, 30, 40)
+
+    def student(**kwargs):
+
+        for key, value in kwargs.items():
+            print(key, ":", value)
+
+    student(
+        name="Rahul",
+        age=25,
+        city="Bangalore"
+    )
+
+10)Exception Handling
+    Exception handling is a mechanism in Python to handle runtime errors 
+    gracefully without stopping the execution of the program. 
+    It is done using try, except, else, and finally blocks.
+
+    try:
+    # Code that may cause error
+
+    except:
+        # Handle error
+
+    else:
+        # Runs if no exception occurs
+
+    finally:
+        # Always executes
+
+    @app.route("/user")
+    def get_user():
+
+        try:
+            user = database.get_user()
+            return user
+
+        except DatabaseError:
+            return {
+                "error": "Database unavailable"
+            }, 500
+
+        finally:
+            database.close()
+
+    raise vs assert
+        raise is used to manually throw an exception when a specific error condition occurs.
+        You explicitly tell Python: "An error has happened, stop and handle it."
+        we intentionally raised an exception because the business rule failed.
+
+        assert is a debugging tool used to check whether a condition is true. 
+        If the condition is false, Python raises an AssertionError.
+
+        def withdraw(amount, balance):
+
+            if amount > balance:
+                raise ValueError("Insufficient balance")
+
+            print("Withdrawal successful")
+
+        withdraw(1000, 500)
+
+        assert syntax: assert condition, "error message"
+
+        age = 15
+        assert age >= 18, "Age should be 18 or above"
+        print("User allowed")
+
+    assert → "This should never happen. If it happens, my code has a bug."
+    raise → "This can happen. Handle this error properly."
+
+11)data structures
+    List → Ordered + Changeable + Allows duplicates
+    Tuple → Ordered + Cannot be changed (Immutable) + Allows duplicates
+    Set → Unordered + No duplicates
+    Dictionary → Key-value pairs
+
+    Dictionary:
+        employees = {
+            "E001": {
+                "name": "Rahul",
+                "age": 28,
+                "department": "DevOps",
+                "salary": 80000
+            },
+
+            "E002": {
+                "name": "John",
+                "age": 30,
+                "department": "Backend",
+                "salary": 75000
+            },
+
+            "E003": {
+                "name": "David",
+                "age": 25,
+                "department": "DevOps",
+                "salary": 90000
+            }
+        }
+        Outer dictionary key → Employee ID
+        Inner dictionary → Employee information
+
+        1. Loop through dictionary keys
+            for emp in employees:
+                print(emp)
+            E001.E002,E003
+
+        2. Loop through keys and values (we use items())
+            for emp_id, details in employees.items():
+                print(emp_id, details)
+            E001 {'name': 'Rahul', 'age': 28, 'department': 'DevOps', 'salary': 80000}
+
+        3. Access nested dictionary values
+            for emp_id, details in employees.items():
+                print(details['name'])
+            Rahul
+
+        4. Find employees from a specific department
+            for emp_id, details in employees.items():
+                if details['department'] == 'DevOps'
+                    print(details["name"])
+            Rahul
+
+        5. Find highest salary employee
+            highest_salary = 0
+            employee_name = ""
+
+            for emp_id, details in employees.items():
+
+                if details["salary"] > highest_salary:
+                    highest_salary = details["salary"]
+                    employee_name = details["name"]
+
+            print(employee_name)
+            print(highest_salary)
+
+        6. Dictionary comprehension
+            names = {
+                emp_id: details['name']
+                for emp_id, details in employees.items()
+            }
+            print(names)
+
+        response = {
+            "status": "success",
+            "users": [
+                {
+                    "id":1,
+                    "name":"Rahul"
+                },
+                {
+                    "id":2,
+                    "name":"John"
+                }
+            ]
+        }
+
+        for key, value in response.items():
+            if key == 'users':
+                for user in value:
+                    print(user["name"])
+
+12)How Routing Works?
+    Routing is the process of mapping an HTTP request URL and method (GET, POST, etc.) to a specific function that handles the request.
+
+    Flask:
+        from flask import Flask
+
+        app = Flask(__name__) 
+
+        @app.route("/users", methods=["GET"])
+        def list_users():
+            return "users"
+
+        # app = Flask(__name__) 
+          This line creates a Flask application object. Flask is a class
+          __name__ tell the location of the current module, which helps flask to locate
+          resources such as template and static files.
+
+    FastAPI:
+      from fastapi import FastAPI
+
+      app = FastAPI()
+
+      @app.get("/users")
+      def get_users():
+        return {"message":"users"}
+
+13)Why FastAPI is Faster?
+    1. ASGI support
+        FastAPI runs on ASGI servers like:Uvicorn, Hypercorn
+    2. Pydantic Validation  
+
+    What is WSGI?
+        WSGI (Web Server Gateway Interface) is a standard interface between 
+        Python web applications and web servers.
+        Used by: Flask, Django
+        WSGI is synchronous.
+
+    What is ASGI?
+        ASGI (Asynchronous Server Gateway Interface) is a modern interface that supports asynchronous Python applications.
+        used by FastAPI, Django async
+
+14)Middleware
+    Middleware is a layer that runs between the client request and application response.
+
+15)JWT Authentication
+    JWT = JSON Web Token
+    Header.Payload.Signature
+
+    User
+    |
+    | username + password
+    Backend API
+    | Validate credentials
+    Generate JWT Token
+    |
+    Return token
+    |
+    Client stores token
+
+    Access token 5 to 15 min valid, Refresh token 7 to 30 days
+
+16)OAuth
+    OAuth is an authorization framework that allows users to access resources without sharing passwords.
+    User
+    |
+    Login Google
+    |
+    Google verifies
+    |
+    Returns Access Token
+    |
+    Application accesses user data
+
+17)Logging
+   Used to track application behavior.
+
+   import logging
+
+   logger = logging.getLogger()
+
+18)cors
+    CORS is a browser security mechanism that allows or blocks requests from different origins. In a real application, a React frontend hosted on one domain calling a FastAPI backend on another domain requires CORS configuration on the backend to allow that origin.
+    
+    from flask import Flask
+    from flask_cors import CORS
+
+    app = Flask(__name__) This creates the Flask application object.
+
+    CORS(app)
+
+    Now Flask adds: Access-Control-Allow-Origin: *
+
+19)flask run
+    if __name__ == "__main__":
+    app.run()
+
+    Execute this code only when this file is directly executed, 
+    not when imported.
+
+    When you execute, python app.py Flask starts development server.
+    app.run(host="0.0.0.0",port=8080,debug=false)
+
+    127.0.0.1, accessable locally in python
+    0.0.0.0, used in docker means , Accept requests from outside the container.
+
+    Flask Development Server
+
+        from flask import Flask
+        app = Flask(__name__)
+
+        @app.route("/")
+        def home():
+            return "Hello Flask"
+
+        if __name__ == "__main__":
+            app.run()
+
+    What is Gunicorn?
+        Gunicorn is a WSGI server.
+        Flask is a WSGI application.
+
+        Relationship:
+            Gunicorn
+                |
+                |
+            Flask app
+
+        Gunicorn manages:
+            Multiple workers
+            Processes
+            Request handling
+        
+        pip install gunicorn
+        
+        from flask import Flask
+
+        app = Flask(__name__)
+
+        @app.route("/")
+        def home():
+            return "Hello Flask Production"
+
+        @app.route("/users")
+        def users():
+            return {
+                "users": [
+                    "Rahul",
+                    "John"
+                ]
+            }
+
+        # Only for development
+        if __name__ == "__main__":
+            app.run(debug=True)
+        
+        start app like, gunicorn app:app
+
+20)What is REST API?
+    REST (Representational State Transfer) is an architectural style for building APIs 
+    where clients communicate with servers using HTTP methods like GET, POST, PUT, DELETE to perform operations on resources.
+
+    | Method | Purpose        | Example           |
+    | ------ | -------------- | ----------------- |
+    | GET    | Read data      | Get users         |
+    | POST   | Create data    | Create user       |
+    | PUT    | Full update    | Replace user      |
+    | PATCH  | Partial update | Update email only |
+    | DELETE | Remove data    | Delete user       |
+
+    @app.route("/users", methods=["GET"])
+    def get_users():
+
+        return {
+            "users": users
+        }
+    
+    @app.route("/users/<id>", methods=["GET"])
+    def get_user(id):
+
+        return {
+            "id": id,
+            "name": "Rahul"
+        }
+
+
+    GET with Query Parameters
+        from flask import request
+        @app.route("/users", methods=["POST"])
+        def create_user():
+
+            data = request.json
+
+            name = data["name"]
+            age = data["age"]
+
+            return {
+                "message":"User created",
+                "name":name,
+                "age":age
+            },201
+        
+21)Status Code
+    200 - success
+    201 - created 
+    400 - bad request
+    401 - not authenticated
+    403 - not authorized
+    404 - not found
+    422 - validation error
+    500 - internal server error
+    504 - gateway timeout
+
+    5xx Server Error Codes
+        | Status Code | Name                  | Meaning                | Real Example          |
+        | ----------- | --------------------- | ---------------------- | --------------------- |
+        | **500**     | Internal Server Error | Application crashed    | Python exception      |
+        | **501**     | Not Implemented       | Feature not supported  | API not built         |
+        | **502**     | Bad Gateway           | Proxy got bad response | Nginx → Flask failure |
+        | **503**     | Service Unavailable   | Service unavailable    | Server overloaded     |
+        | **504**     | Gateway Timeout       | Upstream took too long | Database/API timeout  |
+
+    General classification:
+        | Range   | Meaning       | Simple Explanation                  |
+        | ------- | ------------- | ----------------------------------- |
+        | **1xx** | Informational | Request received, processing        |
+        | **2xx** | Success       | Request completed successfully      |
+        | **3xx** | Redirection   | Client needs to take another action |
+        | **4xx** | Client Error  | Problem is with the request/client  |
+        | **5xx** | Server Error  | Problem is with server/application  |
