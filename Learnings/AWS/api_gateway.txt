@@ -1,0 +1,505 @@
+1) API gateway
+
+    API Gateway is a fully managed service that allows you to create, 
+    publish, secure, monitor, and manage REST, HTTP, and WebSocket APIs.
+
+    Client
+    │
+    ▼
+    API Gateway
+    │
+    ├── Authentication
+    ├── Rate Limiting
+    ├── Logging
+    ├── Request Validation
+    ├── Routing
+    ▼
+    Backend Services
+
+    Most common integrations in production
+
+                    Users
+                    │
+            CloudFront (Optional)
+                    │
+              AWS WAF (Optional)
+                    │
+             API Gateway
+                    │
+     ┌──────────────┼─────────────┐
+     │              │             │
+ Lambda         ECS/EKS        EC2
+     │              │             │
+     └──────► Application ◄───────┘
+                    │
+          RDS / DynamoDB / S3
+                    │
+           SNS / SQS / EventBridge
+
+2)API Gateway Types
+
+    1. HTTP API
+    2. REST API
+    3. WebSocket API
+    4. REST API Private
+
+    1. HTTP API
+
+        It as a lightweight, faster, and cheaper API Gateway.
+        It is designed for modern RESTful APIs.
+        
+        Your frontend calls:
+            GET /users
+            POST /orders
+            PUT /products/10
+            DELETE /users/5
+
+        HTTP API receives the request and forwards it to:
+            Lambda
+            ALB
+            ECS
+            EKS
+            EC2
+
+        Features:
+            ✅ Low latency
+            ✅ Lower cost
+            ✅ JWT Authentication
+            ✅ IAM Authentication
+            ✅ Lambda Integration
+            ✅ ALB Integration
+            ✅ CloudWatch Logs
+
+        Today, most new projects choose HTTP APIs unless they need advanced REST API features.
+
+    2. REST API
+
+        This is the original API Gateway service.
+        It supports many advanced features that HTTP API doesn't.
+
+        GET /employees
+        POST /employees
+        DELETE /employees/100
+
+        Why use REST API?
+
+            Because it supports advanced capabilities such as:
+                API Keys
+                Usage Plans
+                Request Validation
+                Request/Response Mapping Templates
+                Stage Variables
+                Advanced Caching
+                Fine-grained request transformations
+            These features are useful for large enterprise applications.
+
+        The API may need to:
+            Validate incoming JSON
+            Transform request formats
+            Limit customer requests
+            Cache responses
+            Support multiple environments (dev/test/prod)
+
+        REST API is a good fit for these scenarios.
+
+    3. WebSocket API
+
+        Instead of opening a new connection for every request, the client and server keep one long-lived connection open.
+
+        Normal HTTP:
+
+            Client
+            ↓
+            Request
+            ↓
+            Response
+            ↓
+            Connection Closed
+
+        WebSocket:
+
+            Client
+            │
+            │───────────────
+            │               │
+            Server─────────────┘
+
+            Connection stays open. This allows the server to send data to the client instantly.
+        
+        Other common uses:
+            Live cricket scores
+            Ride tracking (Uber/Ola)
+            Live dashboards
+            Collaborative editing (Google Docs)
+
+    4. REST API Private
+
+        A Private REST API is not accessible from the public internet.
+        It can only be accessed from within a VPC through an Interface 
+        VPC Endpoint (AWS PrivateLink).
+
+        EC2
+        ↓
+        VPC Endpoint
+        ↓
+        Private REST API
+        ↓
+        Lambda
+
+        The endpoint is private and never exposed publicly.
+        Only applications running inside the organization's VPC can call the API.
+
+
+    Easy way to remember
+        Need a normal CRUD API?
+                │
+                ▼
+        HTTP API
+
+        Need advanced API Gateway features like API keys, usage plans, caching, or request mapping?
+                │
+                ▼
+        REST API
+
+        Need live, real-time communication?
+                │
+                ▼
+        WebSocket API
+
+        Need an API that is only accessible from inside your AWS VPC?
+                │
+                ▼
+        Private REST API
+
+
+    Questions:
+    -----------------
+
+        Does the API endpoint (GET/POST) look different for HTTP API, REST API, WebSocket API, and Private REST API?
+            ✅ HTTP API → Looks like normal REST endpoints.
+            ✅ REST API → Looks almost identical to HTTP API.
+            ❌ WebSocket API → Completely different. It doesn't use GET/POST for communication 
+                after the connection is established.
+            ✅ Private REST API → Same as REST API, but accessible only from within a VPC.
+
+        The API your application creates (Flask/FastAPI)
+        The AWS API Gateway type (HTTP API vs REST API)
+        These are not the same concept. Let's separate them completely.
+
+        Layer 1 - Your Application (Flask/FastAPI)
+
+            Suppose you write this:
+
+                from fastapi import FastAPI
+
+                app = FastAPI()
+
+                @app.get("/users")
+                def users():
+                    return ["Rahul", "John"]
+
+                @app.post("/users")
+                def create_user():
+                    return {"message": "Created"}
+
+                Your application exposes
+                    GET /users
+                    POST /users
+
+            These are REST endpoints.
+
+        Layer 2 - AWS API Gateway
+            
+            Now suppose your FastAPI app is running on EC2.
+
+                Without API Gateway
+
+                    Client
+                    │
+                    ▼
+                    FastAPI
+
+                The client directly calls GET /users
+
+
+            Now suppose you add API Gateway.
+
+                Client
+                │
+                ▼
+                AWS API Gateway
+                │
+                ▼
+                FastAPI
+
+                The client STILL calls GET /users
+                Nothing changed.
+
+            The difference is AWS API Gateway sits in front.
+
+3)REST API
+
+    If we design our API following REST principles (resources + HTTP methods like 
+    GET, POST, PUT, DELETE), then it is called a REST API.
+
+    For example:
+
+        GET    /users
+        POST   /users
+        PUT    /users/101
+        DELETE /users/101
+
+    Whether you write this in:
+
+        Python (Flask/FastAPI)
+        Java (Spring Boot)
+        Node.js (Express)
+        Go (Gin)
+
+        it is still a REST API.
+
+    The programming language does not determine whether it is REST.
+
+    Only in the aws api gateway, we have separate types called as http and rest.
+
+
+    What is the difference between AWS HTTP API and AWS REST API?"
+
+        Both can expose the same REST endpoints, such as those built with 
+        Flask or FastAPI. The difference is not in the backend application or 
+        the URLs. The difference is in API Gateway itself. HTTP API is a newer, 
+        simpler, faster, and lower-cost gateway designed for common API use cases. 
+        REST API is the older gateway that provides additional features like API keys, 
+        usage plans, request/response mapping templates, request validation, stage variables, 
+        and response caching.
+
+4)REST API 
+
+    1. GET with Query Parameters (queryStringParameters)
+
+        Uses queryStringParameters
+
+        import json
+
+        def lambda_handler(event, context):
+
+            print("event")
+            print(event)
+
+            params = event.get("queryStringParameters")
+            print('params')
+            print(params)
+
+            if params:
+                name = params.get("name", "Guest")
+            else:
+                name = "Guest"
+
+            return {
+                "statusCode": 200,
+                "body": json.dumps({
+                    "message": f"Hello {name}"
+                })
+            }
+
+        From Postman, you hit it like 
+            https://b1y9riimp0.execute-api.ap-south-2.amazonaws.com/Dev/hello?name=Rahul VKG
+
+        Response: 
+            {
+                "message": "Hello Rahul VKG"
+            }
+
+
+    2. GET using Path Parameters
+
+        ##GET using Path Parameters
+
+        import json
+        def lambda_handler(event, context):
+
+            path = event.get("pathParameters")
+            print('path')
+            print(path)
+
+            if path:
+                name = path.get("name")
+            else:
+                name = "Guest"
+
+            return {
+                "statusCode":200,
+                "body":json.dumps({
+                    "message":f"Hello {name}"
+                })
+            }
+
+        From Postman u hit like 
+            https://b1y9riimp0.execute-api.ap-south-2.amazonaws.com/Dev/hello/Rahul717
+        Response:
+            {
+                "message": "Hello Rahul717"
+            }
+        Multi Path Parameters
+            https://b1y9riimp0.execute-api.ap-south-2.amazonaws.com/Dev/hello/{name}/{domain}
+            https://b1y9riimp0.execute-api.ap-south-2.amazonaws.com/Dev/hello/Rahul/DevOps
+
+    3. POST using Request Body
+
+        import json
+
+        def lambda_handler(event, context):
+
+            body = json.loads(event["body"])
+
+            name = body["name"]
+            age = body["age"]
+            city = body["city"]
+
+            return {
+                "statusCode":200,
+                "body":json.dumps({
+                    "message":"User Created",
+                    "user":body
+                })
+            }
+    
+        From Postman u hit like POST
+            https://b1y9riimp0.execute-api.ap-south-2.amazonaws.com/Dev/users
+        Body:
+            {
+                "name":"Rahul G",
+                "age":28,
+                "city":"hyderabad"
+            }
+        Response:
+            {
+                "message": "User Created",
+                "user": {
+                    "name": "Rahul G",
+                    "age": 28,
+                    "city": "hyderabad"
+                }
+            }
+
+    4. Body + Query Together
+
+        We'll create a POST API that accepts:
+
+        Query Parameter → country
+        Request Body → user details
+
+        import json
+
+        def lambda_handler(event, context):
+
+            # Read query parameters
+            query_params = event.get("queryStringParameters") or {}
+            country = query_params.get("country", "Unknown")
+
+            # Read request body
+            body = json.loads(event.get("body", "{}"))
+
+            name = body.get("name")
+            age = body.get("age")
+            city = body.get("city")
+
+            return {
+                "statusCode": 200,
+                "body": json.dumps({
+                    "message": "User Created Successfully",
+                    "country": country,
+                    "user": {
+                        "name": name,
+                        "age": age,
+                        "city": city
+                    }
+                })
+            }
+
+
+        From Postman u hit like POST
+            https://b1y9riimp0.execute-api.ap-south-2.amazonaws.com/Dev/users?country=India
+        Body:
+            {
+                "name":"Rahul G",
+                "age":28,
+                "city":"hyderabad"
+            }
+        Response:
+        {
+            "message": "User Created Successfully",
+            "country": "India",
+            "user": {
+                "name": "Rahul G",
+                "age": 28,
+                "city": "hyderabad"
+            }
+        }
+                
+
+5)Lambda Proxy Integration
+
+    Yes. When Lambda Proxy Integration is enabled, you usually do not need a Mapping Template 
+    because API Gateway forwards the entire HTTP request to Lambda.
+
+    Client
+    │
+    ▼
+    API Gateway
+    │
+    ▼
+    Lambda
+
+    event = {
+        "httpMethod": "GET",
+        "headers": {...},
+        "queryStringParameters": {...},
+        "pathParameters": {...},
+        "body": "...",
+        "requestContext": {...}
+    }
+
+    So Lambda can access:
+
+        ✅ Query Parameters
+        ✅ Path Parameters
+        ✅ Headers
+        ✅ Request Body
+        ✅ Cookies (depending on API type)
+        ✅ HTTP Method
+        ✅ Request Context
+        ✅ Stage Variables
+    No mapping template is required.
+
+5)Questions
+
+    Why use Query Parameters?
+        For filtering, searching, sorting, pagination.
+
+        Example
+        GET /users?city=blr
+
+    Why use Path Parameters?
+        To identify a specific resource.
+
+        Example
+        GET /users/101
+    
+    Why use Request Body?
+        To send complex data.
+
+        Example
+        POST /users
+
+    Which authorization mechanism have you seen in production?
+
+        It depends on the consumer of the API. For service-to-service communication within AWS, 
+        IAM Authorization is commonly used because it leverages IAM roles and SigV4 signing. 
+        For customer-facing applications, Cognito or another OAuth/OIDC identity provider is 
+        typically used with JWT tokens. Lambda Authorizers are generally chosen when custom 
+        authorization logic is required, such as validating proprietary tokens or integrating 
+        with existing enterprise authentication systems.
+    
+
+    

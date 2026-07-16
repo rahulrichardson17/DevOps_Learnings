@@ -5,6 +5,7 @@
 
 
 # Create an Ec2 Instance
+#--------------------------------------#
 terraform {
   required_version = "~> 1.15"
   required_providers {
@@ -27,11 +28,11 @@ resource "aws_instance" "ec2" {
   }
 }
 
-# Create an Security Group
 
+# Create an Security Group
+#--------------------------------------#
 terraform {
   required_version = "~> 1.15"
-
   required_providers {
     aws = {
       source = "hashicorp/aws"
@@ -44,9 +45,9 @@ provider "aws" {
   region = "ap-south-2"
 }
 
-#resource "<resource_type>" "<local_name>"
-
 #--- Allow all public traffic
+
+#resource "<resource_type>" "<local_name>"
 resource "aws_security_group" "security_group" {
   name = "instance_security_group"
 
