@@ -872,7 +872,147 @@
         Actual Infrastructure
 
 26) Different ways of running Terraform in Terraform Cloud
-    
+
+    1. API-Driven Runs
+        Instead of a developer pushing code or using the CLI, 
+        another application calls the Terraform Cloud API to start a run.
+
+        A REST API request starts the Terraform run.
+        GitHub Actions, Azure DevOps can all trigger Terraform Cloud via API.
+
+        API-driven runs allow external applications or CI/CD pipelines to start Terraform runs by calling the Terraform Cloud REST API.
+
+    2. CLI-Driven Workflow
+        Normally with Terraform Cloud, code comes from GitHub.
+        But what if you're developing locally?
+
+        Terraform Cloud supports a CLI-driven workflow.
+
+        You execute:
+            terraform plan
+            terraform apply
+
+        from your laptop. However,the execution happens in Terraform Cloud.
+
+        CLI-driven workflow lets developers use normal Terraform CLI commands while Terraform Cloud performs the execution remotely and stores the state.
+
+27)Speculative Plans
+
+    A Terraform plan that shows what would change, but can never be applied.
+    It is read-only.
+
+28) RBAC (Role-Based Access Control)
+
+    In Terraform Cloud, you don't usually assign permissions directly to users. You create Teams, assign permissions to the Teams, and then add Users to those Teams.
+    Here team is like group, and add users and apply the permissions.
+
+    Different Permission Levels
+        | Permission | Can Do                                                        |
+        | ---------- | ------------------------------------------------------------- |
+        | Read       | View workspaces, runs, state metadata                         |
+        | Plan       | Queue plans/speculative plans                                 |
+        | Write      | Queue applies, update workspace settings (depending on scope) |
+        | Admin      | Full control, including permissions and settings              |
+
+29) Merge 
+
+    By default, Terraform Cloud does not automatically apply changes after 
+    a merge unless the workspace is configured for Auto Apply.
+
+    Terraform Cloud already knows the Terraform workflow. You do NOT write a 
+    pipeline with terraform init, plan, apply, or Sentinel policy checks. 
+    Terraform Cloud orchestrates all of that automatically.
+
+    Does Terraform Cloud know when to run Sentinel?
+        Yes. Suppose your workspace has a Policy Set attached.
+
+    If you don't connect GitHub to Terraform Cloud and you don't have GitHub Actions, what happens?"
+        Nothing executes. GitHub only stores the code and pull request. 
+        Terraform doesn't run automatically because there's no system watching 
+        the repository. To execute Terraform, you need a runner such as Terraform 
+        Cloud with VCS integration, GitHub Actions, Jenkins, Azure DevOps, or 
+        another CI/CD tool. Without one of these, pushing code or creating a PR 
+        does not trigger any Terraform operations.
+
+    Can Terraform Cloud automatically run terraform fmt and terraform validate before I raise the PR?
+        No. Terraform Cloud does not automatically run formatting or 
+        linting checks on every branch push.
+
+30) Sentinel policy
+
+    main = rule {
+        true
+    }
+    Allows everything
+
+    main = rule {
+        false
+    }
+    Block everything
+
+    Rule: A condition that must pass.
+
+    main = rule {
+        all_regions_are_allowed
+    }
+
+    import: sentinel needs terraform information,So
+    import "tfplan/v2"
+
+    the above import gives Sentinel access to Terraform plan data.
+    It can see:
+
+        Resources
+        Changes
+        Attributes
+        Values
+
+    Main
+
+    Every Sentinel policy starts execution from:
+
+    main = rule {
+    }
+
+    This is the entry point.
+
+    Ex: Check only for allowed regions
+
+        import "tfplan/v2" as tfplan
+
+        allowed_regions = [
+            "us-east-1",
+            "us-west-2"
+        ]
+
+        main = rule {
+            all tfplan.resource_changes as rc {
+                rc.change.after.region in allowed_regions
+            }
+        }
+
+    Ex: check tags
+        import "tfplan/v2" ad tfplan
+
+        mandatory_tags = [
+            "Environment",
+            "Owner",
+            "Application"
+        ]
+
+        main = rule {
+            all tfplan.resource_changes as rc {
+                all required_tags as tag {
+                    tag in keys(rc.change.after.tags)
+                }
+            }
+        }
+
+    Ex:
+
+
+
+
 
 
 
@@ -905,6 +1045,102 @@
                 Remote
                 Local
                 Agent
+
+        Do we need GitHub Actions to trigger Terraform Cloud?
+            No. Terraform Cloud's VCS integration is sufficient for the standard 
+            workflow. It uses GitHub webhooks to automatically trigger speculative 
+            plans on pull requests and normal runs after code is merged into the 
+            tracked branch. GitHub Actions are optional and are commonly used for 
+            additional validation steps such as terraform fmt, terraform validate, 
+            TFLint, Checkov, or other security and quality checks before Terraform 
+            Cloud executes the infrastructure changes.
+
+        terraform fmt (Terraform Format)
+            What it does?
+                terraform fmt automatically formats Terraform code into the 
+                standard Terraform style.
+
+                terraform fmt -check (this only checks, it will not format)
+
+        terraform validate
+            terraform validate checks whether Terraform configuration is syntactically and structurally valid.
+            
+            It checks:
+                HCL syntax
+                Missing required arguments
+                Invalid references
+                Wrong resource configuration
+
+            terraform validate
+
+        TFLint 
+            TFLint is a Terraform static code analyzer.
+            
+            It catches:
+                Terraform best practice issues
+                Cloud provider mistakes
+                Deprecated resources
+                Invalid configurations
+
+            Terraform Code Quality Scanner
+
+        Checkov
+            Checkov is a security and compliance scanner for Infrastructure as Code.
+
+            It checks Terraform against security policies.
+            It looks for:
+                Public S3 buckets
+                Open security groups
+                Unencrypted resources
+                Missing tags
+                Weak IAM policies
+        
+        Terraform Cloud OIDC Flow
+            Terraform Cloud gets a temporary AWS credential.
+            Provider Type:
+            OpenID Connect
+
+            Provider URL:
+            https://app.terraform.io
+
+            Audience:
+            aws.workload.identity
+
+
+            create IAM role
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/app.terraform.io"
+                        },
+                        "Action": "sts:AssumeRoleWithWebIdentity",
+                        "Condition": {
+                            "StringEquals": {
+                            "app.terraform.io:aud": "aws.workload.identity"
+                            }
+                        }
+                        }
+                    ]
+                }
+
+            Then in Terraform Cloud Workspace
+                You add variables:
+
+                Enable OIDC authentication
+                TFC_AWS_PROVIDER_AUTH = true
+
+                Mark as:
+
+                Environment Variable
+                Provide IAM Role ARN
+                    TFC_AWS_ROLE_ARN = arn:aws:iam::<ACCOUNT_ID>:role/terraform-cloud-deploy-role
+
+                Also as:
+
+                Environment Variable
         
 
 

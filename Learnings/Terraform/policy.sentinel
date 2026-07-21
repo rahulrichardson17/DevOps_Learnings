@@ -1,0 +1,307 @@
+1. Only Approved regions
+
+    Requirement, Company allows only:
+        us-east-1
+        us-west-2
+
+    No one should deploy in: ap-south-1
+
+    Terraform code:
+        resource "aws_instance" "web" {
+            ami           = "ami-12345"
+            instance_type = "t3.micro"
+        }
+
+    Provider:
+        provider "aws" {
+            region = "ap-south-1"
+        }
+
+    Sentinel Policy:
+
+        import "tfplan/v2" as tfplan
+
+        allowed_regions = [
+            "us-east-1",
+            "us-west-2"
+        ]
+
+        main = rule {
+            all tfplan.resource_changes as r {
+                r.change.after.region in allowed_regions
+            }
+        }
+
+        Meaning:
+            rule returns true or false
+
+            tfplan.resource_changes 
+
+                Terraform plan contains all changes.
+
+                Terraform plan internally contains:
+                    resource_changes:
+                    [
+                        {
+                            type = aws_instance
+                            name = web
+                            change =
+                            {
+                                before=null
+
+                                after =
+                                {
+                                    region="us-east-1"
+                                }
+                            }
+                        }
+                    ]
+
+                all tfplan.resource_changes as r 
+                    This is a Sentinel iterator, 
+                    For every resource change, assign it to variable r
+
+2. Mandatory tags
+    All resources
+
+    Every AWs resources must have environment, owner, application tags
+    {
+        "resource_changes": [
+            {
+            "address": "aws_instance.app",
+            "type": "aws_instance",
+            "change": {
+                "after": {
+                "ami": "ami-123456",
+                "instance_type": "t3.micro",
+                "tags": {
+                    "Environment": "Dev",
+                    "Owner": "Rahul",
+                    "Application": "Done"
+                }
+                }
+            }
+            }
+        ]
+    }
+
+    tags = {
+        Environment = "Dev"
+        Owner = "Rahul"
+        Application = "Done"
+    }
+
+    import "tfplan/v2" as tfplan
+
+    required_tags = [
+        "Environment",
+        "Owner",
+        "Application"
+    ]
+
+    main = rule {
+        all tfplan.resource_changes as rc {
+            all required_tags as tag {
+                tag in keys(rc.change.after.tags)
+            }
+        }
+    }
+
+    Specific Resources:
+        import "tfplan/v2"
+
+        required_tags = [
+            "Environment",
+            "Owner",
+            "Application"
+        ]
+
+        main = rule {
+            all tfplan.resource_type as rc {
+
+                rc.type in [
+                    "aws_instance",
+                    "aws_s3_bucket",
+                ]
+
+                implies
+
+                all required_tags as tag {
+                    tag in keys(rc.change.after.tags)
+                }
+            }
+        }
+
+
+3. No Public S3 Bucket
+
+    {
+        "resource_changes": [
+            {
+            "address": "aws_s3_bucket.my_bucket",
+            "mode": "managed",
+            "type": "aws_s3_bucket",
+            "name": "my_bucket",
+
+            "change": {
+                "actions": [
+                "create"
+                ],
+
+                "before": null,
+
+                "after": {
+                "bucket": "company-prod-data",
+                "acl": "private",
+                "region": "us-east-1",
+                "tags": {
+                    "Environment": "prod"
+                }
+                }
+            }
+            }
+        ]
+    }
+
+    import "tfplan/v2" as tfplan
+
+    main = rule {
+        all tfplan.resource_changes as rc_bucket {
+            rc_bucket.change.after.acl not in [
+                "public-read",
+                "public-read-write"
+            ]
+        }
+    }
+
+4.Production Must Use Encrypted EBS
+    import "tfplan/v2" as tfplan
+
+    main = rule {
+        all tfplan.resource_changes as rc {
+            rc.change.after.encrypted == true 
+        }
+    }
+
+5. Restrict EC2 Instance Types
+
+    import "tfplan/v2" as tfplan
+
+    allowed_types = [
+        "t3.micro",
+        "t3.medium"
+    ]
+
+    main = rule {
+        all tfplan.resource_changes as rc {
+            rc.change.after.instance_type in allowed_types
+        }
+    }
+
+6.Minimum ALB Availability Zones
+
+    import "tfplan/v2" as tfplan
+
+    main = rule {
+        all tfplan.resource_changes as rc {
+            rc.type == "aws_alb"
+            implies
+            length(rc.change.after.subnets) >=2
+        }
+    }
+
+7.Block Public IP in Private Subnets
+    import "tfplan/v2" as tfplan
+
+    main = rule {
+        all tfplan.resource_changes as rc {
+            rc.type != "aws_instance"
+            or
+            rc.change.after.associate_public_ip_address != true
+        }
+    }
+
+8. S3 Security Policy
+
+    import "tfplan/v2" as tfplan
+
+    s3_acl_check = rule {
+        all.tfplan.resource_changes as rc{
+            rc.type == "aws_s3_bucket"
+            implies
+            rc.change.after.acl not in [
+                "public-read",
+                "public-read-write"
+            ]
+        }
+    }
+
+    s3_public_access_block = rule {
+        all tfplan.resource_changes as rc {
+            rc.type == "aws_s3_bucket_public_access_block"
+            implies
+            rc.change.after.block_public_acls == true
+        }
+    }
+
+    s3_public_policy_block = rule {
+        all tfplan.resource_changes as rc {
+            rc.type == "aws_s3_bucket_public_access_block"
+            implies
+            rc.change.after.block_public_policy == true
+        }
+    }
+
+
+    main = rule {
+        s3_acl_check
+        and
+        s3_public_access_block
+        and
+        s3_public_policy_block
+    }
+
+
+9. OPA
+
+    policies/
+
+    terraform/
+        security/
+            s3.rego
+            ec2.rego
+            iam.rego
+
+    := Define and assign a new variable.
+    [_] iteration
+
+    package terraform.security.s3
+
+    deny[msg] {
+        resource := input.resource_changes[_]
+        resource.type == "aws_s3_bucket"
+        acl := resource.change.after.acl
+        acl == "public-read"
+            or
+        acl == "public-read-write"
+
+        msg := "S3 bucket ACL cannot be public"
+    }
+
+    deny[msg] {
+        resource := input.resource_changes[_]
+        resource.type == "aws_s3_bucket_public_access_block"
+        resource.change.after.block_public_acls != true
+
+        msg := "S3 bucket must block public ACLs"
+    }
+
+    deny[msg] {
+        resource := input.resource_changes[_]
+        resource.type == "aws_s3_bucket_public_access_block"
+        resource.change.after.block_public_policy != true
+
+        msg := "S3 bucket must block public bucket policies"
+    }
+
+
