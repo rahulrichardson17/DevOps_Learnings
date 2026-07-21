@@ -1,0 +1,933 @@
+1) Terraform Open Source vs Terraform Cloud/Enterprise
+
+    Normally you run:
+        terraform init
+        terraform plan
+        terraform apply
+    from your laptop or Jenkins server.
+
+    State is usually stored in S3:
+        backend "s3" {
+            bucket = "terraform-state"
+        }
+
+    But in Terraform Cloud (TFC) or Terraform Enterprise (TFE):
+
+        State is stored centrally.
+        Terraform runs happen remotely.
+        Teams collaborate safely.
+        RBAC exists.
+        Policy enforcement exists.
+        Cost estimation exists.
+        VCS integration exists.
+        Audit logs exist.
+
+    In simple terms think like
+        | Git                | Terraform         |
+        | ------------------ | ----------------- |
+        | GitHub             | Terraform Cloud   |
+        | Local repository   | Local Terraform   |
+        | Branch protections | Sentinel policies |
+        | Pull requests      | Terraform Runs    |
+
+    Terraform code is executed on Terraform Cloud workers instead of local machines. 
+    The plan, policy checks, cost estimation, and apply happen remotely while state 
+    is centrally managed.
+
+
+2) Architecture
+
+    Developer:
+
+        git push
+        ↓
+        GitHub
+        ↓
+        Terraform Cloud Workspace
+        ↓
+        Terraform Cloud Runner
+        ↓
+        AWS
+        ↓
+        Terraform State
+        ↓
+        Policies
+        ↓
+        Cost Estimation
+        ↓
+        Apply
+
+
+    1. Remote Execution
+
+        Without Terraform Cloud: 
+            
+            terraform apply
+                runs on:
+                    your laptop
+                    Jenkins
+                    GitHub Actions
+
+        With Terraform Cloud:
+
+            Terraform executes on HashiCorp-managed workers.
+
+            Example:
+
+                git push
+
+            Terraform Cloud automatically:
+                Plan
+                Policy Check
+                Cost Estimation
+                Apply
+                Store State
+            Everything happens remotely.
+
+        Advantages:
+            Standardized Terraform version:
+                Everyone uses Terraform 1.12 No version mismatch.
+
+            Credentials remain secure:
+                Instead of AWS_ACCESS_KEY, AWS_SECRET_KEY on laptops, Terraform Cloud stores them as workspace variables.
+
+            Audit Logs:
+                You know:
+                    who ran it
+                    what changed
+                    who approved
+                    when it happened
+
+3) Workspaces
+
+    A Workspace is:
+        Terraform code
+        Variables
+        State file
+        Run history
+        Policies
+        Permissions
+
+    Each workspace usually represents:
+        dev
+        qa
+        uat
+        prod
+
+    Each workspace has:
+        its own state
+        its own variables
+        its own runs
+
+    1) Are Terraform CLI workspaces and Terraform Cloud workspaces the same?
+        
+        No. 
+
+        CLI workspaces 
+            terraform workspace new dev
+            share code and backend.
+
+        Terraform Cloud workspaces are separate entities containing:
+            state
+            variables
+            permissions
+            runs
+            policies
+
+
+4) Terraform CLI Workspaces and Terraform Cloud Workspaces
+
+    1. Terraform CLI Workspace (Local Terraform)
+
+        This feature exists in the Terraform CLI itself.
+        Its purpose is simply to maintain multiple state files for the same Terraform configuration.
+
+        For example,
+            terraform/
+                main.tf
+                variables.tf
+
+        You create workspaces:
+            terraform workspace new dev
+            terraform workspace new test
+            terraform workspace new prod
+
+        Now Terraform creates different state files.
+
+        default
+            terraform.tfstate
+
+        dev
+            terraform.tfstate.d/dev/terraform.tfstate
+
+        test
+            terraform.tfstate.d/test/terraform.tfstate
+
+        prod
+            terraform.tfstate.d/prod/terraform.tfstate
+
+        The infrastructure code is exactly the same. Only the state file changes.
+
+
+    2. Terraform Cloud Workspace
+
+        Terraform Cloud Workspace is completely different.
+        A project/environment inside Terraform Cloud.
+
+        It contains much more than a state file.
+
+        A Cloud Workspace stores
+            Terraform State
+            Variables
+            Secrets
+            Run history
+            Plan history
+            Apply history
+            Policies
+            Notifications
+            Team permissions
+            Cost estimation
+            Version information
+        It is basically an entire environment.
+
+        Everything is isolated. 
+        companies dont use CLI workspaces for Production, For enterprise environments, that's not enough.
+
+5) Runs
+
+    A Run is 
+        Plan
+        Policy Check
+        Cost Estimation
+        Apply
+        State Update
+
+    A run represents the lifecycle of a Terraform execution 
+    including planning, policy validation, cost estimation, 
+    apply, and state updates.
+    
+    Every execution creates a run.
+        Example:
+            Run #25
+                Plan
+                ↓
+                Sentinel
+                ↓
+                Cost Estimation
+                ↓
+                Manual Approval
+                ↓
+                Apply
+                ↓
+                State Update
+
+6) Run states
+    
+        Pending
+            Waiting.
+            
+        Planning
+            Running plan.
+
+        Policy Checking
+            Sentinel running.
+
+        Cost Estimation
+            Calculating cost.
+
+        Applying
+            Resources being created.
+
+        Applied
+            Completed successfully.
+
+        Errored
+            Failed.
+
+7) State Storage
+
+    Terraform Cloud automatically stores, terraform.tfstate
+    you don't configure, backend "s3"
+    
+    Terraform Cloud becomes the backend. 
+    Benefits:
+        encrypted
+        versioned
+        locked
+        recoverable
+        centralized
+
+    State Locking:
+        If Rahul starts, terraform apply
+        Another engineer cannot modify the same workspace simultaneously.
+        Terraform locks the state.
+
+    How is state managed in Terraform Cloud?
+        Terraform Cloud stores state remotely with versioning, 
+        encryption, locking, and automatic backups.
+
+
+8) Sentinel
+
+    Sentinel is Terraform's policy-as-code framework.
+    It enforces governance.
+
+    Security team says, No public S3 buckets.
+    Sentinel blocks the deployment.
+
+    Difference between Sentinel and OPA?
+
+        Sentinel is HashiCorp's proprietary Policy-as-Code framework that 
+        integrates tightly with Terraform Cloud/Enterprise.
+
+        OPA (Open Policy Agent) is an open-source, vendor-neutral 
+        Policy-as-Code engine that works with Terraform, Kubernetes, APIs, CI/CD pipelines, and many other platforms.
+
+        So,
+            Sentinel → Terraform Cloud/Enterprise ecosystem
+            OPA → Universal policy engine
+        
+        Comparison Table
+        | Feature            | Sentinel                   | OPA                                           |
+        | ------------------ | -------------------------- | --------------------------------------------- |
+        | Developed by       | HashiCorp                  | CNCF (Open Source)                            |
+        | License            | Proprietary                | Open Source                                   |
+        | Language           | Sentinel                   | Rego                                          |
+        | Vendor Lock-in     | Yes                        | No                                            |
+        | Terraform Support  | Native                     | Via Conftest, Terraform plan evaluation       |
+        | Kubernetes Support | No (not primary)           | Excellent (Gatekeeper, admission control)     |
+        | CI/CD Integration  | Terraform Cloud            | GitHub Actions, Jenkins, GitLab, ArgoCD, etc. |
+        | Cloud Providers    | Mainly HashiCorp ecosystem | AWS, Azure, GCP, Kubernetes, APIs             |
+        | Best For           | Terraform Cloud/Enterprise | Multi-platform governance                     |
+
+    
+    Sentinel:
+
+        Sentinel is built specifically for the HashiCorp ecosystem.
+            It can inspect:
+                Terraform plan
+                Terraform state
+                Terraform configuration
+                Workspace variables
+            before an apply.
+
+        Example policy: No EC2 instance larger than t3.medium.
+
+        If someone writes:
+
+            resource "aws_instance" "web" {
+                instance_type = "m5.large"
+            }
+
+            Terraform Cloud executes:
+                terraform plan
+                    ↓
+                Sentinel Policy
+                    ↓
+                Denied ❌
+
+                Apply never happens.
+
+        Example:
+            Only approved regions
+            Mandatory tags
+            No public S3 bucket
+            Production must use encrypted EBS
+
+    OPA (Open Policy Agent):
+
+        OPA is much more generic. It can evaluate almost anything.
+
+        Examples:
+            Terraform, Docker, Kubernetes, REST APIs, GitHub Actions, 
+            Istio, AWS IAM Policies, JSON/YAML
+
+
+        OPA policies are written in Rego.
+
+        Example:
+
+            deny[msg] {
+                input.resource_type == "aws_s3_bucket"
+                input.public == true
+                msg := "Public S3 bucket not allowed"
+            }
+
+            Terraform plan
+                ↓
+                OPA
+                ↓
+                Violation
+                ↓
+                Pipeline fails
+
+
+        Terraform + OPA:
+
+            Terraform creates, 
+                terraform plan -out=tfplan
+
+            Convert to json
+                terraform show -json tfplan
+
+            OPA evaluates:
+                plan.json
+                ↓
+                OPA
+                ↓
+                Pass/Fail
+
+                If policy fails:
+                    CI Pipeline
+                    ↓
+                    Stop Deployment
+
+                Unlike Sentinel, OPA is not built into Terraform Cloud—you integrate it yourself, often in CI/CD.
+
+        Sentinel and OPA are both Policy-as-Code frameworks, but they target different ecosystems. 
+        Sentinel is HashiCorp's proprietary policy engine and integrates natively with Terraform 
+        Cloud and Enterprise, allowing organizations to validate Terraform plans before they're applied. 
+        
+        OPA is an open-source, vendor-neutral policy engine that uses the Rego language and can enforce 
+        policies across Terraform, Kubernetes, CI/CD pipelines, APIs, and other systems. If an organization 
+        is heavily invested in Terraform Cloud, Sentinel is a natural choice. If it needs centralized policy 
+        enforcement across multiple technologies, OPA is generally the better fit.
+
+        Can OPA replace Sentinel?
+            Yes, for Terraform policy enforcement OPA can often be used instead of Sentinel, 
+            especially in CI/CD pipelines. However, if you're using Terraform Cloud/Enterprise 
+            and want native policy checks, policy sets, and run integration, Sentinel provides a 
+            smoother experience. Many organizations choose OPA for its flexibility and vendor neutrality, 
+            while others use Sentinel because they're already invested in the HashiCorp platform.
+
+9) Policy Sets
+
+    A Policy Set is a collection of Sentinel policies.
+    Example:
+        security.sentinel
+        tagging.sentinel
+        cost.sentinel
+        region.sentinel
+
+    Now attach these policy set to the workspaces, so they can inherit all the policies.
+
+    Why use Policy Sets?
+        To centrally manage Sentinel policies and apply them consistently across 
+        multiple workspaces.
+    
+10) Cost Estimation
+
+    Terraform Cloud estimates AWS cost before apply.
+    
+    Example:
+        Plan:
+            3 EC2
+            2 NAT Gateway
+            1 ALB
+
+        Estimated:
+            $380/month
+        If suddenly:
+            $9000/month
+        you catch it before deployment.
+
+    Does Terraform Cloud stop expensive resources automatically?
+        Not by default.
+
+        You can:
+            review cost manually
+            use Sentinel to enforce cost limits(Deny if cost > $1000)
+
+11) Team Permissions (RBAC)
+
+    Terraform Cloud supports role-based access control.
+
+    Example:
+        Developers:
+            Can:
+                Plan
+                Read
+                Queue runs
+            Cannot:
+                Apply to prod
+
+        DevOps:
+            Can:
+                Apply
+                Destroy
+                Manage variables
+
+        Security:
+            Can:
+                Manage policies
+                
+        Admins:
+            Can:
+                Everything
+
+12) Audit Logs
+
+    An Audit Log is a permanent record of every important action performed in 
+    Terraform Cloud/Enterprise.
+
+    Think of it as the activity history of your organization.
+        It answers questions like:
+            Who triggered this deployment?
+            Who changed a variable?
+            Who deleted a workspace?
+            Who approved the run?
+            Who changed permissions?
+            When did it happen?
+
+        It's mainly used for:
+            Security
+            Compliance
+            Troubleshooting
+            Accountability
+
+        Suppose your production infrastructure suddenly changes. Instead of guessing, you check the audit logs.
+
+    What Gets Logged?
+        Terraform Cloud records many administrative and operational events
+        
+        Workspace events
+        Variable Changes
+        Terraform Runs
+        Team Changes
+        Policy Events
+        State Operations
+        Organization Settings
+        
+13) Organization
+
+    An Organization is the highest-level container in Terraform Cloud.
+    Inside an Organization, you store everything related to Terraform.
+    
+    Organization
+
+    ABC-Company
+        |
+        |------Projects
+        |
+        |------Workspaces
+        |
+        |------Teams
+        |
+        |------Users
+        |
+        |------Policy Sets
+        |
+        |------Variable Sets
+        |
+        |------Audit Logs
+
+    Creating an Organization
+        When you first sign in to Terraform Cloud:
+            Dashboard
+            ↓
+            Create Organization
+
+14) Project
+
+    A Project is simply a way to group related workspaces.
+    It helps organize infrastructure by application, team, or business unit.
+
+    Projects do not execute Terraform themselves.
+    They are organizational containers.
+
+    Creating Workspaces Inside a Project
+        
+        Inside the Project: New Workspace
+        Version Control
+        ↓
+        GitHub
+        ↓
+        Repository
+        ↓
+        terraform-network
+    
+    Organization vs Project
+
+        | Organization                                                             | Project                                                  |
+        | ------------------------------------------------------------------------ | -------------------------------------------------------- |
+        | Highest-level container                                                  | Groups related workspaces                                |
+        | Usually represents a company                                             | Usually represents an application, department, or team   |
+        | Contains teams, users, policies, variable sets, projects, and workspaces | Primarily contains workspaces                            |
+        | Owns RBAC and organization-wide settings                                 | Provides logical organization for related infrastructure |
+
+    Can a Workspace belong to multiple Projects?
+        No. A Terraform Cloud Workspace belongs to exactly one Project at a time 
+        (or, in older Terraform Cloud versions before Projects existed, it could
+        exist directly under the Organization). Projects are simply an 
+        organizational layer—they don't change how Terraform plans or 
+        applies infrastructure; they help you manage and organize related 
+        workspaces within an Organization.
+
+15)Organization components
+    Projects, Teams, Users, Variable sets,
+    policy sets, private registery, vcs Providers, audit logs, 
+    settings, billing.
+
+16)Workspace components
+    state file, variables, runs history, vcs repository, execution mode,
+    terraform version.
+
+17) Workspace variables and variable sets
+    A workspace variable belongs to a single Terraform Cloud workspace 
+    and is typically used for values specific to that environment, such as ENV or 
+    INSTANCE_TYPE. 
+    
+    A Variable Set is a reusable collection of variables that can be shared across 
+    multiple workspaces, making it ideal for common values like cloud credentials, 
+    regions, or organization-wide tags. This reduces duplication and simplifies 
+    maintenance. If both define the same variable, the workspace variable overrides 
+    the value from the Variable Set.
+
+    Think of it like this:
+        Variable = Local to one workspace.
+        Variable Set = Reusable across many workspaces.
+
+    Sensitive Variables
+        Variable Sets also support sensitive values.
+        Terraform Cloud hides the value but still injects it during runs.
+
+    Can Workspace Variables Override Variable Set Values?
+        Yes. Suppose your Variable Set contains
+        INSTANCE_TYPE = t3.micro, But your production workspace defines
+        INSTANCE_TYPE = m6i.large
+        The workspace-specific variable takes precedence over the Variable Set.
+        This lets you define common defaults while allowing exceptions.
+
+    When you mark it as Sensitive:
+        Terraform Cloud encrypts and stores it securely.
+        The value is hidden in the UI.
+        The value is not shown in logs or plans (unless your Terraform code explicitly outputs it, which should be avoided).
+        Terraform still injects it into the run.
+
+18) VCS Integration
+
+    How does Terraform Cloud integrate with GitHub?
+        VCS Integration
+
+    Terraform Cloud monitors a Git repository. Whenever a commit or pull request 
+    is pushed, it automatically queues a run, performs a plan, evaluates Sentinel policies, 
+    estimates costs, and optionally applies the changes after approval.
+
+    VCS = Version Control System
+        Examples:
+            GitHub
+            GitLab
+            Bitbucket
+            Azure DevOps
+
+    VCS Integration means:
+        Terraform Cloud connects directly to your Git repository and 
+        automatically runs Terraform whenever your infrastructure code changes.
+    
+    Without VCS:
+        Everyone needs Terraform installed.
+        Everyone needs AWS credentials.
+        No central history.
+        No approvals.
+        No audit trail.
+        Easy to make mistakes.
+
+    GitHub sends a webhook to Terraform Cloud.Terraform Cloud immediately starts a new run.
+
+    After the PR is merged into main, Terraform Cloud performs the real apply 
+    (depending on the workspace configuration).
+
+    Does Terraform Cloud store my Terraform code?
+        Terraform Cloud does not copy and permanently store your repository 
+        as the source of truth. Your Git repository remains the source of truth. 
+        During a run, Terraform Cloud temporarily clones the configured repository 
+        (or working directory), executes Terraform, and records the run details 
+        and state. Your code continues to live in GitHub, GitLab, Azure DevOps, etc.
+    
+    Github credentials
+        When you click Connect GitHub in Terraform Cloud:GitHub redirects you to its login page (if you're not already signed in).
+        You log in to GitHub directly.Do you want to authorize Terraform Cloud to access your repositories
+        You click Authorize Terraform Cloud
+        
+        GitHub issues an OAuth token to Terraform Cloud.
+        Terraform Cloud stores that authorization securely—not your GitHub password.
+
+19) AWS credentials (to create infrastructure)
+    Uses:
+        AWS Access Key / Secret Key
+        or IAM Role with OIDC (recommended)
+        or Dynamic Credentials
+    These AWS credentials are stored as Terraform Cloud Variables or 
+    Variable Sets, not in GitHub.
+
+20)Notifications
+
+    Notifications in Terraform Cloud allow you to send alerts whenever important events happen in a workspace.
+    Think of them as event-based messages.
+
+    Instead of someone logging into Terraform Cloud to check, 
+    Terraform Cloud can automatically notify people or external systems.(to Slack, Teams, email, or another configured destination.)
+
+    Common Events That Trigger Notifications
+        Run started
+        Plan completed
+        Apply completed
+        Run failed
+        Run canceled
+        Requires approval
+        Policy check failed
+        State version created (depending on integration)
+
+21)Run Triggers
+    A Run Trigger automatically starts a run in one workspace 
+    when another workspace successfully completes an Apply.
+
+    Workspace A finishes → Workspace B automatically starts.
+    This is useful when one infrastructure depends on another.
+
+    network-workspace and eks-workspace
+        But EKS depends on the VPC.(So we use Triggers)
+
+    How to Configure (UI):
+        Go to:
+            Workspace
+            ↓
+            Settings
+            ↓
+            Run Triggers
+            ↓
+            Add Run Trigger
+
+        Select:
+            Source Workspace
+            ↓
+            network-prod
+
+            Target Workspace:
+                eks-prod
+
+            Save.
+        Now every successful apply in network-prod triggers a run in eks-prod.
+
+    Benefits
+        Automates dependent infrastructure deployments.
+        Removes manual coordination between teams.
+        Ensures infrastructure is created in the correct order.
+        Fits well with modular infrastructure designs.
+
+    Remote State lets one workspace read outputs from another workspace.
+
+22)Private Module Registry
+    The Private Module Registry is a central repository inside a Terraform 
+    Cloud Organization where you can store and share your own reusable Terraform 
+    modules.
+
+    Think of it like:
+        Terraform Registry → Public modules shared by the community.
+        Private Module Registry → Your company's internal modules.
+
+    Why do we need it?
+        Suppose every team needs to create a VPC.
+        Without a Private Registry, each team writes its own VPC module:
+
+        Team A
+            vpc.tf
+
+        Team B
+            vpc.tf
+
+        Team C
+            vpc.tf
+
+        Problems:
+            Duplicate code
+            Different implementations
+            Hard to maintain
+            Inconsistent standards
+
+        Every team uses the same approved modules.
+
+    Where are the modules stored?
+        A common misconception is that Terraform Cloud stores the module code itself.
+        Typically, the source code remains in a Git repository (for example, GitHub, 
+        GitLab, or Azure DevOps). The Private Module Registry indexes and publishes 
+        that repository as a versioned Terraform module.
+
+        Terraform Cloud uses Git tags as module versions.
+        
+        In Terraform Cloud:
+            Organization
+            ↓
+            Registry
+            ↓
+            Publish Module
+
+        Choose:
+            GitHub repository
+            Module name
+            Provider (AWS, Azure, GCP, etc.)
+
+        Terraform Cloud imports the module. The module appears in the Private Registry.
+        Now anyone in the organization can use it.
+
+23) Module Sharing
+
+    Module Sharing is the ability to reuse the same Terraform module across 
+    multiple workspaces, projects, or teams instead of copying the code.
+
+    Private Module Registry = Where modules are published and stored (catalog).
+    Module Sharing = How those published modules are made available and reused by other teams/workspaces.
+
+    Is Module Sharing a separate feature from the Private Module Registry?
+        They're closely related. The Private Module Registry is where reusable 
+        modules are published and versioned. Module Sharing refers to making 
+        those published modules available for multiple workspaces 
+        and teams to consume, so infrastructure code is standardized and 
+        reused instead of duplicated.
+
+24)Terraform Agents
+    
+    Normally, Terraform Cloud executes your runs on HashiCorp-managed workers.
+    
+        Developer
+            │
+            ▼
+        Terraform Cloud
+            │
+            ▼
+        HashiCorp Managed Runner
+            │
+            ▼
+        AWS / Azure / GCP
+
+    This works well if your infrastructure is publicly accessible.
+
+    Problem
+
+        Suppose your company has:
+
+        Private AWS VPC
+        Private Kubernetes cluster
+        On-premises VMware
+        Private databases
+        Internal APIs
+
+        These resources are not reachable from the public internet.
+        HashiCorp's runners cannot access them.
+
+    Terraform Agent:
+        You install a Terraform Agent inside your private network.
+        Developer
+            │
+            ▼
+        Terraform Cloud
+            │
+            ▼
+        Terraform Agent
+        (Inside your VPC)
+            │
+            ▼
+        Private AWS Resources
+
+        The agent receives jobs from Terraform Cloud and executes them locally within your network.
+
+    Terraform Cloud vs Terraform Agent
+        | Managed Execution                   | Terraform Agent                    |
+        | ----------------------------------- | ---------------------------------- |
+        | Runs on HashiCorp infrastructure    | Runs inside your infrastructure    |
+        | Best for public cloud resources     | Best for private networks          |
+        | No infrastructure to manage         | You install and maintain the agent |
+        | Cannot reach private-only endpoints | Can reach private resources        |
+
+    Terraform Agents allow Terraform Cloud to execute runs inside an 
+    organization's own network instead of on HashiCorp-managed infrastructure. 
+    They're used when Terraform needs access to private resources, such as private 
+    VPCs, private Kubernetes clusters, on-premises environments, or internal APIs. 
+    The agent securely polls Terraform Cloud for work, executes the Terraform run 
+    locally, and reports the results back to Terraform Cloud, while Terraform Cloud 
+    continues to provide state management, run history, policies, and governance.
+
+    Terraform Agent allows Terraform Cloud to execute Terraform runs inside 
+    our local/private network instead of on HashiCorp-managed infrastructure.
+
+    Execution Modes:
+        Three execution modes.
+        
+        Remote
+            Terraform Cloud executes.
+        Local
+            Your laptop executes.
+            Terraform Cloud stores state.
+        Agent
+            Terraform Agent executes.
+
+25) How does Terraform Cloud detect Drift?
+
+    Terraform Cloud has a Drift Detection feature.
+    It periodically (or on demand) performs a refresh-only check against the 
+    real infrastructure.
+
+    It compares:
+        Terraform State
+        Actual Infrastructure
+
+26) Different ways of running Terraform in Terraform Cloud
+    
+
+
+
+) Questions
+
+        Why Terraform Cloud instead of S3 backend?
+            Terraform Cloud provides remote execution, RBAC, audit logs, 
+            policy-as-code, cost estimation, centralized state management, 
+            VCS integration, and approval workflows. S3 only provides remote state storage.
+
+        How do you manage environments?
+            Separate workspaces are used for dev, qa, and prod with separate state files, 
+            variables, permissions, and approval workflows.
+
+        How do you enforce governance?
+            Sentinel policy sets are attached to workspaces to enforce security, 
+            compliance, tagging, approved regions, encryption, and cost controls.
+
+        How is state locking handled?
+            Terraform Cloud automatically locks state during runs to prevent 
+            concurrent modifications.
+
+        What happens when a Sentinel policy fails?
+            The run stops after planning, the policy check fails, 
+            and the apply phase is blocked until the violation is fixed.
+
+        Can Terraform Cloud run Terraform locally?
+            Yes.
+            Execution modes:
+                Remote
+                Local
+                Agent
+        
+
+
+
+    
+        
+    
+
+
+
+            
+
+
+        
+
+
+
+
+
+    
+
+
+    
+
+
+

@@ -1,0 +1,772 @@
+1) What is AWS CDK?
+
+    AWS CDK (Cloud Development Kit) is an Infrastructure as Code (IaC) framework developed by AWS.
+    Instead of writing infrastructure in YAML or JSON (CloudFormation), you write it using programming languages.
+
+    Supported languages:
+        TypeScript, Python, Java, C#, Go
+        All produce exactly the same CloudFormation template. Only the programming language differs.
+
+    Example:
+        Instead of writing 300 lines of CloudFormation YAML:
+        Resources:
+        MyBucket:
+            Type: AWS::S3::Bucket
+
+    You write:
+        from aws_cdk import aws_s3 as s3
+
+        bucket = s3.Bucket(self, "MyBucket")
+        Then CDK generates the CloudFormation automatically.
+
+2) CDK vs Terraform
+
+    | Feature            | AWS CDK                  | Terraform         |
+    | ------------------ | ------------------------ | ----------------- |
+    | Developed by       | AWS                      | HashiCorp         |
+    | Language           | Python, TS, Java, C#, Go | HCL               |
+    | Cloud Support      | AWS only                 | Multi-cloud       |
+    | Backend            | CloudFormation           | Terraform State   |
+    | State file         | No                       | Yes               |
+    | Supports Azure/GCP | No                       | Yes               |
+    | Learning curve     | Easier for developers    | Easier for DevOps |
+
+    Terraform:
+        resource "aws_s3_bucket" "bucket" {
+        bucket = "mybucket"
+        }
+
+    CDK:
+        s3.Bucket(self, "MyBucket")
+
+    Terraform is a Multi-cloud, whereas AWS CDK is AWS-specific and generates CloudFormation templates internally. 
+    Terraform maintains its own state file, while CDK relies on CloudFormation for state management.
+
+3) CDK vs CloudFormation
+
+    CloudFormation:
+        Write YAML
+            ↓
+        Deploy
+
+    CDK:
+        Write Python
+            ↓
+        CDK generates CloudFormation
+            ↓
+        CloudFormation Deploys
+
+    So CDK is not a replacement for CloudFormation. It is a higher-level abstraction.
+
+    Example:
+        CloudFormation
+
+            Resources:
+            Bucket:
+                Type: AWS::S3::Bucket
+
+        CDK:
+            bucket = s3.Bucket(self, "Bucket")
+
+        After, cdk synth
+    CDK generates the YAML automatically.
+
+4)Constructs
+
+    Constructs are the building blocks of AWS CDK.
+    There are three levels.
+
+    L1 Constructs:
+        Lowest level.
+        Direct mapping to CloudFormation resources.
+
+        Example:
+            s3.CfnBucket(...)
+        Almost one-to-one with CloudFormation.
+        Need many properties.
+
+    L2 Constructs:
+        Most commonly used.
+        Provide sensible defaults.
+        
+        Example:
+            s3.Bucket(...)
+            Automatically enables best practices.
+        Much simpler.
+
+    L3 Constructs:
+        Also called Patterns.
+        They create multiple resources together.
+
+    Example:
+        API Gateway
+                +
+        Lambda
+                +
+        IAM Role
+                +
+        Permissions
+
+        One construct creates all of them.
+
+    Example:
+        LambdaRestApi(...)
+
+    Interview shortcut
+        L1 = Raw CloudFormation
+        L2 = AWS Resources
+        L3 = Complete Architectures
+
+    Which Construct is commonly used in production?
+
+        L2 Constructs (by far the most common)
+        Around 90-95% of production CDK code uses L2 constructs.
+
+        Why?
+            Less code
+            AWS best practices built in
+            Easier to maintain
+            Easier to read
+            Covers almost all AWS services
+
+        Example:
+            bucket = s3.Bucket(
+                self,
+                "MyBucket",
+                versioned=True,
+                encryption=s3.BucketEncryption.S3_MANAGED
+            )
+
+        When is L1 used?
+            Only when:
+                AWS has released a new feature that L2 doesn't support yet.
+                You need a CloudFormation property that isn't exposed by the L2 construct.
+
+            Suppose AWS launches a new S3 feature today. CloudFormation supports it immediately.
+            CDK L2 may take a few weeks to add support.
+
+        
+        When is L3 used?
+            L3 constructs are used, but much less frequently than L2.
+            
+            Examples include:
+                API Gateway + Lambda
+                ECS + Load Balancer
+                Static website pattern
+        
+        They are great for simple applications or rapid development.
+        In large enterprises, teams often prefer explicit L2 resources because 
+        they want full control over networking, IAM, logging, security, and compliance.
+
+
+
+5) Stack vs App
+
+    App:
+        Entire Project, Contains multiple stacks.
+
+        Example:
+            MyProject
+
+            ├── Dev Stack
+            ├── Test Stack
+            └── Prod Stack
+
+    Stack:
+        Equivalent to one CloudFormation Stack.
+        
+        Example:
+            Networking Stack
+            Application Stack
+            Database Stack
+
+    Each stack becomes a separate CloudFormation stack.
+
+    Relationship:
+        App
+
+        ├── Network Stack
+        ├── Security Stack
+        ├── EKS Stack
+        └── Monitoring Stack
+
+    App and Stack Architecture
+        Suppose your project is:
+
+        MyApp
+
+        ├── S3 Stack
+        ├── Lambda Stack
+        ├── VPC Stack
+        ├── RDS Stack
+
+        This is completely normal.
+
+        The App is simply the top-level container.
+
+    What happens when cdk synth runs?
+        Suppose:
+            App
+            ├── NetworkStack
+            ├── LambdaStack
+
+        When you run: cdk synth
+        CDK synthesizes each stack independently.
+
+        Conceptually:
+            App
+            ├── NetworkStack
+            │      ↓
+            │  NetworkStack.template.json
+            │
+            ├── LambdaStack
+            │      ↓
+            │  LambdaStack.template.json
+
+            Each stack gets its own CloudFormation template.
+
+            Will they become one CloudFormation template?
+                No, Each CDK Stack becomes one CloudFormation Stack.
+
+                Example:
+                    App
+
+                    ├── VPC Stack
+                    ├── Lambda Stack
+                    ├── S3 Stack
+
+                After deployment, AWS CloudFormation shows:
+                    CloudFormation
+                        ✔ VPCStack
+                        ✔ LambdaStack
+                        ✔ S3Stack
+                    Three separate CloudFormation stacks.
+
+6) Why split into multiple stacks?
+
+    This is the production approach because it provides:
+        Better modularity
+        Easier maintenance
+        Independent deployments
+        Clear ownership between teams
+    Avoids CloudFormation resource limits (a stack has a limit on the number of resources)
+    
+    For example:
+        App
+            ├── Networking Stack
+            │      ├── VPC
+            │      ├── Subnets
+            │      └── NAT Gateway
+            │
+            ├── Security Stack
+            │      ├── IAM
+            │      ├── KMS
+            │      └── Secrets Manager
+            │
+            ├── Application Stack
+            │      ├── Lambda
+            │      ├── API Gateway
+            │      └── SQS
+            │
+            ├── Monitoring Stack
+            │      ├── CloudWatch
+            │      └── SNS
+        This is much easier to manage than putting everything into a single stack.
+
+    Can stacks communicate?
+        Yes, The Application Stack can reference the VPC from the Network Stack.
+        
+        Network Stack
+            │
+            │ exports VPC
+            ▼
+        Application Stack
+
+        CDK automatically creates the required CloudFormation 
+        cross-stack references (or you can use outputs/imports explicitly when needed).
+
+    A CDK App is the root of the application and can contain multiple Stacks. 
+    Each Stack represents a separate CloudFormation stack. When cdk synth runs, 
+    it generates one CloudFormation template per Stack, not a single template for the entire App. This modular design makes deployments, maintenance, and ownership much easier in enterprise environments."
+
+
+7) CDK Commands
+    
+    cdk diff
+        Shows changes before deployment.
+
+        Example:
+            + New Bucket
+            - Delete Security Group
+            ~ Modify Lambda
+
+        Like Terraform:
+            terraform plan
+    
+    cdk deploy
+        Deploys infrastructure.
+
+        Python
+        ↓
+        CloudFormation
+        ↓
+        AWS Resources
+
+    Equivalent to
+        terraform apply
+    
+    cdk destroy
+        Deletes infrastructure.
+        
+        Equivalent to
+            terraform destroy
+
+
+8) How CDK Generates CloudFormation
+
+    Python Code
+        ↓
+        CDK Construct Tree
+        ↓
+        CloudFormation JSON/YAML
+        ↓
+        CloudFormation Service
+        ↓
+        AWS Resources
+
+    So CDK never directly creates AWS resources. CloudFormation performs the deployment.
+
+9) When to Choose CDK over Terraform
+
+    Choose CDK when:
+        AWS-only environment
+        Developers are comfortable with programming languages
+        Complex logic is needed (loops, conditions, classes, functions)
+        Need reusable components using code
+        Already using CloudFormation
+
+    Choose Terraform when:
+        Multi-cloud (AWS + Azure + GCP)
+        Managing third-party providers (GitHub, Datadog, Cloudflare, Kubernetes, etc.)
+        Large enterprise DevOps teams
+        Cloud-agnostic infrastructure is required
+
+10) How many CDK commands are there?
+
+    cdk init:
+        Create a new CDK project
+
+    cdk bootstrap:
+        Prepare an AWS account/region for CDK deployments
+
+    cdk synth:
+        Generate CloudFormation template
+
+    cdk diff:
+        Show infrastructure changes
+
+    cdk deploy:
+        Deploy infrastructure
+    
+    cdk destroy:
+        Delete infrastructure
+
+    cdk ls:
+        List all stacks
+
+    cdk doctor:
+        Check environment and diagnose issues
+
+
+11) Terraform has a state file. Where does CDK/CloudFormation store its state?
+
+    This is one of the biggest differences between Terraform and CDK.
+
+    Terraform:
+        Terraform Code
+            │
+        terraform.tfstate
+            │
+        Local OR Remote Backend (S3)
+
+    Terraform itself keeps track of the infrastructure using the state file.
+
+    CDK:
+        CDK Code
+            │
+        CloudFormation Template
+            │
+        CloudFormation Service
+            │
+        AWS Resources
+
+    There is no terraform.tfstate equivalent.
+    Instead, AWS CloudFormation stores the stack state internally in the CloudFormation service.
+
+    When you run: cdk deploy
+        CDK sends the generated template to CloudFormation.
+
+    CloudFormation stores:
+        Stack resources
+        Current resource configuration
+        Outputs
+        Parameters
+        Change history
+        Events
+
+    This information is managed by AWS; you don't manage a separate state file.
+
+    Where is it stored?
+        It's stored within the CloudFormation service in your AWS account and region.
+
+        You can view it in:
+            AWS Console → CloudFormation → Stacks
+
+            There you'll see:
+                Stack Status
+                Events
+                Resources
+                Outputs
+                Parameters
+                Template
+
+12) Is the CloudFormation template generated in JSON or YAML?
+
+    Both are supported by CloudFormation.
+        When you run: cdk synth
+        The CLI output is typically JSON by default.
+        and they were stored in the cdk.out
+
+        CloudFormation accepts JSON or YAML.
+        Many developers prefer reading YAML because it's more concise, 
+        but CDK commonly synthesizes JSON.
+
+13) Can I generate YAML instead of JSON?
+
+    Yes, but not directly with the standard cdk synth command.
+    There is no official CLI option to change
+
+    1. Convert the generated JSON to YAML using tools like yq or scripts.
+    2. View the template in the AWS CloudFormation console, 
+        where it can often be displayed in YAML format.
+    
+14) Is the generated JSON stored locally?
+
+    Yes. Suppose your project is:
+
+        my-cdk-project/
+            app.py
+            lib/
+            cdk.out/
+
+        After: cdk synth
+        you'll have something like: 
+        
+            cdk.out/
+                MyStack.template.json
+                manifest.json
+                tree.json
+            These files exist locally.
+
+        When you run, cdk deploy CDK reads: MyStack.template.json
+        and uploads it to CloudFormation.
+
+    Is the template also stored in AWS?
+        Yes, 
+        
+        After deployment:
+            Developer
+                ↓
+                cdk deploy
+                ↓
+                CloudFormation
+                ↓
+                Stores
+                    • Template
+                    • Resources
+                    • Outputs
+                    • Parameters
+                    • Events
+                    • Current Stack State
+        
+        So the template exists:
+            locally (under cdk.out)
+            in CloudFormation
+
+15) What if multiple developers deploy to the same stack?
+
+    This is the key question.
+
+        Suppose:
+            Developer A
+            ↓
+            cdk deploy
+            ↓
+            CloudFormation Stack
+
+        At the same time:
+            Developer B
+            ↓
+            cdk deploy
+            ↓
+            Same Stack
+
+    How does AWS handle this?
+        CloudFormation locks the stack during updates.
+        
+        When a stack update starts, CloudFormation transitions through statuses like:
+            UPDATE_IN_PROGRESS
+
+        During this time:
+            Developer A
+            ↓
+            UPDATE_IN_PROGRESS
+
+        If Developer B tries:
+            cdk deploy
+        CloudFormation rejects it with an error similar to, Stack is in UPDATE_IN_PROGRESS
+            or
+        Stack is currently being updated
+        
+        CloudFormation allows only one update operation per stack at a time.
+
+        Is this similar to Terraform state locking?
+            Conceptually, yes, but the implementation is different. The lock is managed by the backend (for example, S3 + DynamoDB).
+
+
+    What do companies do in production?
+        
+        In most organizations, developers do not run cdk deploy directly to production.
+
+        This avoids situations where multiple developers try to deploy the same stack manually.
+
+        Typically:
+            Developers deploy only to their own sandbox or development AWS accounts.
+            Shared environments (QA, UAT, Production) are deployed only by the CI/CD pipeline.
+            Because deployments are centralized, CloudFormation's built-in stack update protection is usually sufficient.
+
+16) Bootstrap
+
+    What is cdk bootstrap? Why is it needed?
+        Before deploying CDK for the first time into an AWS account/region:
+        cdk bootstrap, creates a CDK Toolkit Stack.
+
+        It creates resources like:
+            S3 bucket (stores deployment assets)
+            ECR repository (stores Docker images if needed)
+            IAM roles
+            KMS key (optional depending on bootstrap version)
+
+        Without bootstrap:
+            cdk deploy
+            fails because CDK has nowhere to upload Lambda zip files, Docker images, etc.
+
+    Bootstrap prepares an AWS account and region for CDK deployments 
+    by creating the infrastructure required for asset publishing and deployment.
+
+17) Assets
+
+    lambda_.Function(
+        self,
+        "MyLambda",
+        code=lambda_.Code.from_asset("lambda")
+    )
+
+    Where is my Lambda code uploaded?
+
+        Flow:
+            Laptop
+            ↓
+            Lambda.zip
+            ↓
+            Bootstrap S3 Bucket
+            ↓
+            CloudFormation
+            ↓
+            Lambda
+
+        For Docker:
+            Docker Image
+            ↓
+            Bootstrap ECR
+            ↓
+            CloudFormation
+            ↓
+            ECS/Lambda
+
+
+18) Cross Stack References:
+
+    Application Stack needs VPC
+    CDK automatically creates CloudFormation exports/imports.
+    No need to manually create outputs in many cases.
+
+19) Dependencies Between Stacks
+
+    Suppose
+        Stack A, creates VPC
+        Stack B, creates EKS
+
+    How will CDK know the order?
+        eks_stack.add_dependency(network_stack)
+
+    Deployment becomes
+        Network Stack
+            ↓
+        EKS Stack
+
+20) Environment (env)
+
+    env = Environment(
+        account="123456789012",
+        region="ap-south-1"
+    )
+
+    Without env, CDK deploys to Current AWS CLI profile
+    With env, It deploys to Specific Account, Specific Region
+
+
+21) Context
+
+    How do you store environment-specific values?
+        Example: 
+            dev
+                instance=t3.micro
+            prod
+                instance=t3.large
+
+        CDK supports context values.
+            Example:
+                cdk.json
+                context
+                dev
+                prod
+
+22) Parameters vs Context
+
+        Parameter, CloudFormation runtime input.
+        Context, CDK compile-time input.
+
+        Context:
+            Context is used to store configuration values that are looked up 
+            before deployment or shared across the CDK app.
+
+            Values available during synthesis (cdk synth).
+            Example:
+                // cdk.json
+                {
+                    "context": {
+                        "environment": "dev",
+                        "instanceType": "t3.micro"
+                    }
+                }
+
+            Read it in CDK:
+                const env = app.node.tryGetContext("environment");
+                const instanceType = app.node.tryGetContext("instanceType");
+
+            Output:
+                environment = dev
+                instanceType = t3.micro
+
+            Another example:
+                CDK automatically stores lookup results.
+
+                What does fromLookup() do?
+                    fromLookup() does not create a new AWS resource.
+
+                    Instead, it looks up an existing resource in your AWS account 
+                    during cdk synth and imports it into your CDK application 
+                    so you can reference it.
+
+                    Find an existing resource in my AWS account and let me use it in my CDK code.
+
+                    Suppose your company already has this VPC:
+                        Now you're writing a CDK application to create an EC2 instance.
+                        You don't want to create another VPC. Instead, you want to use the existing one.
+
+                    Example:
+                        from aws_cdk import (
+                            Stack,
+                            aws_ec2 as ec2
+                        )
+                        from constructs import Construct
+
+                        class MyStack(Stack):
+
+                            def __init__(self, scope: Construct, construct_id: str, **kwargs):
+                                super().__init__(scope, construct_id, **kwargs)
+
+                                # Lookup existing VPC by name
+                                vpc = ec2.Vpc.from_lookup(
+                                    self,
+                                    "ExistingVpc",
+                                    vpc_name="prod-vpc"
+                                )
+
+                                ec2.Instance(
+                                    self,
+                                    "MyInstance",
+                                    vpc=vpc,
+                                    instance_type=ec2.InstanceType("t3.micro"),
+                                    machine_image=ec2.AmazonLinuxImage()
+                                )
+                    Here:
+                        CDK searches your AWS account for a VPC named prod-vpc.
+                        It retrieves details such as the VPC ID, subnet IDs, availability zones, 
+                        and route tables.
+                        The EC2 instance is launched inside that existing VPC.
+                
+                from_lookup() is used to import existing AWS resources, such as a VPC, into a CDK application at synthesis time. 
+                CDK queries AWS once, caches the metadata in cdk.context.json, and then uses that information in subsequent syntheses.
+
+        Parameters:
+            Parameters are CloudFormation Parameters. They ask for values during deployment, not synthesis.
+
+            In CDK, parameters are defined using CfnParameter (an L1 construct), 
+            but their values can be passed into L2 constructs like ec2.Instance 
+            or s3.Bucket. The parameter is resolved by CloudFormation at deployment time, 
+            allowing the same template to be deployed with different inputs.
+
+    Context vs Parameters
+
+            | Context                                    | Parameters                      |
+            | ------------------------------------------ | ------------------------------- |
+            | Available during `cdk synth`               | Available during `cdk deploy`   |
+            | Read using `tryGetContext()`               | Read using `CfnParameter`       |
+            | Stored in `cdk.json` or `cdk.context.json` | Passed by CloudFormation        |
+            | Best for environment config                | Best for deployment-time values |
+
+
+
+23) Escape Hatches
+
+        Sometimes L2 doesn't expose a property.
+        
+        How do you modify the underlying CloudFormation?
+            use: bucket.node.default_child
+            This lets you access the L1 construct behind an L2 construct.
+
+        Why use Escape Hatches?
+            Suppose AWS launches a new S3 feature today.
+            CloudFormation supports it. CDK hasn't added support yet.
+            
+            Instead of waiting for a new CDK release, you can use an escape hatch.
+
+        Using addOverride()
+
+            bucket = s3.Bucket(
+                self,
+                "MyBucket"
+            )
+            
+            Internally, this L2 construct creates an L1 construct (CfnBucket).
+
+            cfn_bucket = bucket.node.default_child
+
+            cfn_bucket.add_override(
+                "Properties.NewFeature",
+                "SomeValue"
+            )
+
+            
