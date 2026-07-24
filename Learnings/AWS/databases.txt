@@ -1,0 +1,272 @@
+1)Database types
+    1. structured (pre-defined structure)
+    2. semi-structured
+    3. un-structured
+
+    1. Relational Databases (Structured Data)
+        Data is stored in tables (rows & columns).
+        Uses SQL: Supports ACID transactions.
+        Best when relationships between data are important.
+        | Service       | Engine                |
+        | ------------- | --------------------- |
+        | Amazon RDS    | MySQL                 |
+        | Amazon RDS    | PostgreSQL            |
+        | Amazon RDS    | MariaDB               |
+        | Amazon RDS    | Oracle                |
+        | Amazon RDS    | SQL Server            |
+        | Amazon Aurora | MySQL Compatible      |
+        | Amazon Aurora | PostgreSQL Compatible |
+
+    2. Semi-Structured Databases (NoSQL)
+
+        Data doesn't need a fixed schema.
+        Every record can have different attributes.
+        Usually JSON, Key-Value, Document.
+
+        AWS mainly provides:
+
+            Amazon DynamoDB:
+
+                (Document + Key Value Database)
+
+                Example:
+                    {
+                    "UserID":1,
+                    "Name":"Rahul",
+                    "Phone":"9999999999"
+                    }
+
+                    {
+                    "UserID":2,
+                    "Name":"John",
+                    "Email":"john@gmail.com",
+                    "Age":27
+                    }
+
+                Notice both records have different fields.
+
+            Amazon DocumentDB:
+
+                MongoDB-compatible document database.
+                Stores BSON/JSON documents.
+
+                Example:
+                    {
+                        "emp":
+                        {
+                            "id":101,
+                            "skills":["AWS","Terraform","Python"]
+                        }
+                    }
+
+                Use when applications are built for MongoDB.
+
+            Amazon Keyspaces:
+
+                Managed Apache Cassandra database.
+
+                Used for, Time-series, IoT, Large write workloads
+
+            Amazon MemoryDB:
+
+                Redis-compatible persistent in-memory database.
+                
+                Used for, Caching with persistence, Real-time applications, Gaming, Leaderboards
+
+    3. Unstructured Data
+        No predefined format.
+
+        Examples:
+            Images
+            Videos
+            Audio
+            PDFs
+            Logs
+            Documents
+            Backups
+
+        AWS generally stores this in Amazon S3, which is an object storage service rather than a traditional database.
+        
+        Services:
+            | Service    | Purpose              |
+            | ---------- | -------------------- |
+            | Amazon S3  | Object Storage       |
+            | Amazon EFS | Shared File Storage  |
+            | Amazon FSx | Managed File Systems |
+
+2) What is Amazon RDS?
+    
+    RDS = Relational Database Service
+    Managed relational database service.
+    
+    AWS manages the database infrastructure so you don't have to.
+    
+    Without RDS, you would need to:
+        Launch EC2
+        Install MySQL/Postgres
+        Configure replication
+        Configure backups
+        Configure monitoring
+        Configure failover
+        Patch OS
+        Patch DB
+        Replace failed disks
+
+    With RDS
+        AWS manages everything except your data and database schema.
+        You manage, Tables, Users, Queries, Indexes
+
+    RDS supports:
+        MySQL
+        PostgreSQL
+        MariaDB
+        Oracle
+        SQL Server
+    Aurora is technically a separate AWS database service, though it's managed similarly to RDS.
+
+    Basic Architecture:
+        Application
+        ↓
+        RDS Endpoint
+        ↓
+        Database Instance
+        ↓
+        EBS Storage
+
+        Applications never connect to disks.
+
+    What does an RDS Instance contain?
+        Think of it like an EC2 instance dedicated to running a database.
+        
+        Contains:
+            CPU
+            RAM
+            OS
+            Database Engine
+            EBS Storage
+            Network Interface
+
+    Important Components:
+
+        1. DB Instance
+            The server running MySQL/Postgres.
+            
+            Example:
+                db.t3.medium
+                2 vCPU
+                4 GB RAM
+
+        2. Storage
+            Uses Amazon EBS.
+
+            Types
+                gp3
+                io1/io2 (Provisioned IOPS)
+
+            Example
+                100 GB gp3
+
+        3. Endpoint
+            Applications connect here.
+            mydb.rds.amazonaws.com
+            
+            AWS handles directing traffic to the active instance.
+
+        4. Security Group
+            Exactly like an EC2 Security Group.
+
+            Example:
+                Allow 3306
+                
+            Place RDS in private subnets. Applications access it through the VPC; 
+            it typically does not need a public IP.
+
+    Why DB Subnet Groups?
+        RDS requires a DB Subnet Group.
+
+        Example:
+            Private Subnet A
+            Private Subnet B
+            
+            AWS uses these subnets when creating the DB and for Multi-AZ deployments.
+
+    Public vs Private Access
+        Can RDS have a Public IP?
+            No, we need to launch it in the private subnets.
+
+    
+    Storage Autoscaling
+        Example:
+            Allocated: 100 GB
+            Maximum: 500 GB
+
+            When storage fills, AWS automatically increases storage up to the configured maximum.
+            Useful when logs or data grow unexpectedly.
+    
+    Storage Types
+        gp3
+            Most common, General workloads and Balanced cost.
+
+        io2 / Provisioned IOPS
+            Used when High transaction rate, Banking, ERP, Heavy write workloads
+
+    Instance Classes
+        Examples
+            Burstable
+                db.t3.micro
+                db.t4g.micro
+
+            General Purpose
+                db.m6g.large
+                
+            Memory Optimized
+                db.r6g.large
+
+        We have an application with 100 users What instance?
+            db.t3.medium
+            gp3 storage
+            Good balance of cost and performance for modest workloads.
+
+        We have 10 million users.
+            Need to evaluate:
+                Read/write workload
+                Storage requirements
+                CPU and memory usage
+                High availability
+                Read replicas
+                Connection pooling
+                Monitoring
+            A single large instance alone is usually not enough.
+
+    Questions:
+    -----------
+        Does AWS manage backups?
+            Yes, if automated backups are enabled.
+        
+        Can we SSH into RDS?
+            No, Unlike EC2, you don't get OS-level access.
+        
+        Can we install software?
+            No, You manage the database, not the underlying operating system.
+
+        Does RDS use EBS?
+            Yes, The underlying storage is based on Amazon EBS.
+
+        Does AWS manage patching?
+            Yes, (during the configured maintenance window, unless you choose to defer where supported).
+
+            It means:
+                AWS is responsible for applying database engine patches and operating system patches to the RDS instance.
+                AWS does not patch immediately when a new patch is released.
+                Instead, AWS waits until the maintenance window that you configured.
+
+                During that window AWS will:
+                    Apply the patch
+                    Restart the database if required
+                    Complete maintenance
+
+                What is a Maintenance Window?
+                    It is simply a scheduled time when AWS is allowed to perform maintenance.
+
+
+        

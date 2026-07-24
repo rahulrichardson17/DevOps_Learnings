@@ -1,0 +1,1860 @@
+1) CDK Vs Enterprise CDK
+
+    There is no separate "Enterprise AWS CDK" product. 
+    There is only AWS CDK (Cloud Development Kit).
+    
+    However, in companies you'll hear terms like "Enterprise CDK", 
+    "Enterprise CDK Framework", or "Internal CDK Library". They do not refer to a different AWS product.
+
+    Here's the difference:
+
+        1. Standard AWS CDK (Provided by AWS)
+
+            This is the official CDK.
+            It contains:
+                Constructs (L1, L2, L3)
+                Stacks
+                Apps
+                Assets
+                Synth
+                Bootstrap
+                Deploy
+                Context
+                Environment (Account/Region)
+
+            Everyone downloads the same CDK using npm/pip.
+
+
+        2. Enterprise CDK (Created by the Company)
+
+            Large organizations build their own reusable CDK libraries on top of AWS CDK.
+            Instead of every developer writing:
+                new s3.Bucket(...)
+            they create an internal construct like:
+                new EnterpriseS3Bucket(this, "LogsBucket");
+
+            Internally it may automatically enable:
+                Versioning
+                Encryption
+                Lifecycle rules
+                Access logging
+                Block Public Access
+                Required Tags
+                Monitoring
+                Organization naming standards
+            The developer only writes one line.
+
+            Without enterprise framework, Developer configures everything manually.
+            With enterprise framework, Developer writes, The company library creates
+            the AWS bucket with all company security standards.
+
+        Why companies build this?
+            Suppose a company has 400 AWS accounts.
+
+            They want every S3 bucket to have:
+                AES-256 encryption
+                Block Public Access
+                Versioning enabled
+                Cost allocation tags
+                Access logging
+                CloudWatch alarms
+            Instead of reminding every engineer, they enforce it once in an internal construct.
+        
+        AWS provides only the CDK framework.
+        Companies build their own reusable libraries using:
+            Custom Constructs
+            Construct Libraries
+            Wrapper Constructs
+            Internal NPM packages
+            Private Git repositories
+
+2) CDK setup
+
+    AWS CDK is not one thing. It has two major parts:
+                        AWS CDK
+                           │
+            ┌──────────────┴──────────────┐
+            │                             │
+    AWS CDK CLI                  AWS CDK Libraries
+    (Command Line Tool)            (Programming APIs)
+
+    Phase 1: Installing AWS CDK
+
+        Step 1: Install Node.js
+
+            Why install Node.js?
+                Because the CDK CLI is written in Node.js.
+                Node.js is the runtime that executes JavaScript.
+
+                Even if we were writing CDK in Python or Java, the CDK CLI itself is built with Node.js.
+            
+            What gets installed when you install Node.js?
+                When you install Node.js, you get Node.js Runtime, This runs JavaScript outside the browser.
+                You also get, npm Node Package Manager.
+
+                What is npm?
+                    Think of npm like, in Python pip install flask
+                    same here npm install -g aws-cdk
+
+                    When you run npm install -g aws-cdk, npm downloads AWS CDK CLI Package
+                    into the global npm location.
+
+                    Then it creates a command cdk
+                    Now cdk --version works.
+
+            We install node js from the nodesource, once installed , it will install node and npm.
+            Verify Node.js:
+                node -v (node js runtime)
+                npm -v (node package Manager)
+
+                which node
+                which npm
+
+            Example:
+                node v22.10.0
+                npm 10.9.0
+
+        Step 2: Install AWS CLI
+            aws --version
+
+            Example:
+                aws-cli/2.27.1
+
+            Configure credentials:
+                aws configure
+                    You'll provide:
+
+                    AWS Access Key
+                    AWS Secret Key
+                    Region
+                    Output Format
+
+        Step 3: Install CDK CLI
+
+            Install globally:
+                npm install -g aws-cdk
+
+                Verify: 
+                    cdk --version
+                    which cdk
+
+                Example: 2.189.0
+
+            Now the cdk command is available everywhere.
+            
+            Why use -g?
+                The -g flag means global.
+                
+                Without -g:
+                    npm install aws-cdk
+                    the CLI would only be installed inside the current project.
+                    
+                With -g:
+                    npm install -g aws-cdk
+                    the cdk command becomes available from any directory on your system.
+
+            What is installed?
+                
+                Only the CDK CLI.
+                It provides commands like:
+
+                cdk init
+                cdk synth
+                cdk deploy
+                cdk diff
+                cdk destroy
+                cdk doctor
+                cdk bootstrap
+
+            Notice: You haven't installed any AWS libraries yet. Those come later inside each project.
+
+3) Project initilization ?
+
+    cdk init
+        In realtime projects, They do use cdk init, but only once when creating
+        a brand-new CDK project.After that, almost nobody creates projects from 
+        scratch manually.
+
+    Scenario 1: Very first CDK project in the company
+        Suppose your company has decided to adopt AWS CDK.
+        One DevOps/Platform engineer creates the project.
+
+            mkdir aws-platform
+            cd aws-platform
+
+            cdk init app --language python
+    
+    Scenario 2: Enterprise Project
+        In most enterprise environments, we don't start every project 
+        by running cdk init. The platform or DevOps team typically creates 
+        a standardized CDK template repository using cdk init once. 
+        
+        That template already includes the project structure, linting, 
+        testing, CI/CD pipelines, environment configuration, and internal 
+        construct libraries. 
+        
+        New infrastructure projects are created by cloning or using that 
+        template, ensuring consistency and compliance across teams.
+
+    cdk init app --language python
+    --------------------------------
+        Think of this command as "Create a brand-new Python CDK project."
+
+        Step 1 - CDK CLI verifies itself
+
+            It checks:
+                Is this an empty directory?
+                Is Python available?
+                Is the project type app?
+                Is the language python?
+
+                If everything is OK, it continues.
+
+        Step 2 - Downloads the Python project template
+
+            The CDK CLI already contains templates for different languages.
+            
+                For example:
+                    Python Template
+                    TypeScript Template
+                    Java Template
+                    C# Template
+                    Go Template
+
+            Since you selected Python, it copies the Python template into your folder.
+            Think of it like copying a starter project.
+
+            Step 3 - Creates the folder structure
+
+                Now your empty folder becomes:
+
+                my-cdk-app/
+
+                ├── app.py
+                ├── cdk.json
+                ├── README.md
+                ├── requirements.txt
+                ├── requirements-dev.txt
+                ├── source.bat
+                │
+                ├── my_cdk_app/
+                │   ├── __init__.py
+                │   └── my_cdk_app_stack.py
+                │
+                └── tests/
+                    ├── __init__.py
+                    └── unit/
+
+                Every one of these files is generated automatically.
+            
+            -------  
+            app.py:
+
+                This is the entry point of your CDK application. Everything starts from here.
+
+                What does it contain?
+
+                    Creates the CDK App.
+                    Creates one or more Stacks.
+                    Starts the synthesis process app.synth()
+
+                    --------------
+                    import aws_cdk as cdk
+                    from cdk.cdk_stack import CdkStack
+
+                    app = cdk.app()
+                    stack = CdkStack(app, "CdkStack")
+                    app.synth()
+                    ----------------
+
+                    It creates the CDK Application. The App is the top-level container.
+                    Everything in CDK belongs inside an App. Without an App, you cannot create stacks.
+                    The App simply holds all the stacks.
+
+                    stack = CdkStack(app, "CdkStack")
+                        When you write the above, Python internally does something like:
+
+                            stack = CdkStack(
+                                scope=app,
+                                construct_id="CdkStack"
+                            )
+                            
+                        So you're creating one stack inside the App.
+                    
+                    First parameter, app This tells CDK Put this stack inside this App.
+                        App
+                        │
+                        └── CdkStack
+                    
+                    Second parameter "CdkStack" This is the Construct ID.
+                    It is a unique name inside the App.
+
+                    For example:
+                        CdkStack(app, "DevStack")
+                        CdkStack(app, "TestStack")
+                        CdkStack(app, "ProdStack")
+
+                        App
+                        |
+                        ├── DevStack
+                        ├── TestStack
+                        └── ProdStack
+
+                    Every construct in CDK has an ID. Later, when CloudFormation is generated, these IDs help create logical resource names.
+
+                    What if you create two stacks?
+
+                        app = cdk.App()
+                        CdkStack(app, "Dev")
+                        CdkStack(app, "Prod")
+                        app.synth()
+
+                        Now your App contains:
+                        App
+                        │
+                        ├── Dev
+                        └── Prod
+
+                        Each stack can contain completely different AWS resources.
+
+                    app.synth()
+                        This is the most important step. synth means "synthesize."
+                        It tells CDK: Convert my Python code into CloudFormation templates.
+                        Before this line, CDK only has Python objects in memory.
+
+                        After calling:
+                            app.synth()
+                            
+                            CDK generates:
+
+                                cdk.out/
+                                ├── manifest.json
+                                ├── tree.json
+                                └── CdkStack.template.json
+                                
+                                The important file is: CdkStack.template.json
+                                This is a standard CloudFormation template.
+                    
+                            AWS CloudFormation understands JSON/YAML templates—not Python—so synthesis is the translation step.
+
+                        When you execute:
+
+                            cdk synth
+
+                            CDK performs these steps:
+
+                            Starts the Python program (app.py).
+                            Creates the App object.
+                            Creates the CdkStack object.
+                            Executes all the resource creation code inside CdkStack.
+                            Builds an in-memory construct tree.
+                            Calls app.synth().
+                            Converts that construct tree into one or more CloudFormation templates in the cdk.out directory.
+            
+            ------
+            cdk.json
+
+                Configuration file for the CDK CLI.
+
+                What does it contain?
+                    {
+                        "app": "python3 app.py"
+                    }
+
+                Why? When you run cdk deploy
+                how does the CLI know which Python file to execute?
+
+                It reads:
+                    cdk.json
+                            │
+                            ▼
+                    python3 app.py
+                
+                Without this file, cdk deploy, wouldn't know where your application starts.
+
+            ----------------
+            requirements.txt
+
+                Lists the Python packages required for your CDK project.
+                    aws-cdk-lib==2.x.x
+                    constructs>=10,<11
+
+                pip install -r requirements.txt
+                    This installs all required packages.
+
+            -----------------
+            requirements-dev.txt
+
+                Contains development-only packages.
+                    Examples:
+                        pytest
+                        mypy
+                        black
+                        flake8
+
+                These are not needed to deploy AWS resources. They're only used while developing.
+                Think of it as "Tools for developers."
+
+            --------------
+            README.md
+
+                Documentation for the project. In companies, this file is usually updated with project-specific information.
+
+            ----------------
+                source.bat
+
+                    Only for Windows. Instead of typing .venv\Scripts\activate
+                    you can run source.bat Linux users generally ignore this file.
+
+            ----------
+            my_cdk_app/
+
+                This is your Python package. Inside it are your infrastructure files.
+                __init__.py , Marks the directory as a Python package.
+
+            -------
+            cdk.out/
+
+                It is created after cdk synth, Purpose Stores the generated 
+                CloudFormation templates and other deployment artifacts.
+
+                You generally don't edit files in cdk.out; they are generated output.
+
+4) CDK commands and importance
+
+    1. cdk init
+
+        Creates a new CDK project.
+
+        cdk init app --language python
+
+        What it does
+            Creates the project structure.
+            Creates app.py.
+            Creates cdk.json.
+            Creates requirements.txt.
+            Creates an empty stack.
+            Creates test files.
+
+        Use it only once when starting a new project.
+   
+
+    2. cdk synth
+
+        Converts your Python CDK code into a CloudFormation template.
+
+        cdk synth
+            Flow
+            Python Code
+                │
+                ▼
+            CDK
+                │
+                ▼
+            CloudFormation Template
+
+        It does not create any AWS resources.
+        Instead, it generates a CloudFormation template in cdk.out/
+
+        cdk synth synthesizes the CDK application into a CloudFormation template.
+
+
+    3. cdk deploy
+
+        Deploys your infrastructure.
+
+        cdk deploy
+            Flow
+            Python Code
+                │
+                ▼
+            CloudFormation
+                │
+                ▼
+            AWS
+
+        It:
+            Synthesizes the template.
+            Uploads assets if required.
+            Creates or updates the CloudFormation stack.
+            Creates AWS resources.
+
+    4. cdk diff
+
+        Shows changes before deployment.
+
+        cdk diff
+
+        Example:
+            + AWS::S3::Bucket
+            ~ AWS::Lambda::Function
+            - AWS::IAM::Role
+
+        Meaning:
+            + Create
+            ~ Modify
+            - Delete
+
+        Very useful before production deployments.
+
+    5. cdk destroy
+
+        Deletes all resources created by the stack.
+
+        cdk destroy
+        Deletes:
+            EC2
+            S3
+            Lambda
+            VPC
+            IAM
+            RDS
+
+        Basically, everything managed by that CloudFormation stack (subject to resource deletion policies).
+
+    6. cdk bootstrap
+
+        What does it do?
+            It prepares your AWS account for CDK deployments.
+            It creates a special CloudFormation stack called: CDKToolkit
+
+        This stack typically includes resources such as:
+            S3 bucket (stores deployment assets)
+            IAM roles
+            ECR repository (for container image assets)
+            Supporting infrastructure for deployments
+
+        You generally run it once per AWS account and Region before your 
+        first deployment.
+
+
+    7. cdk ls
+
+        Lists all stacks in the application.
+
+        Example:
+            NetworkStack
+            DatabaseStack
+            ApplicationStack
+
+        Very useful when a project contains multiple stacks.
+
+
+    8. cdk doctor
+
+        Checks your CDK environment.
+
+        Shows information like:
+            CDK version
+            Node.js version
+            OS
+            Environment details
+
+            Useful for troubleshooting.
+
+
+    9. cdk version
+
+        Shows the installed CDK CLI version.
+            
+            cdk --version
+            Example: 2.189.0
+
+
+    10. cdk metadata
+    
+        Displays metadata associated with your stacks.
+        Not commonly used in day-to-day work but can help with diagnostics.
+
+    11. cdk watch
+
+        Continuously watches your project for changes.
+
+        When you save a file:
+
+            Save Python File
+                │
+                ▼
+            Automatically Synthesizes
+                │
+                ▼
+            Automatically Deploys
+
+            Very convenient during development.
+
+    12. cdk context
+
+        Manages cached context values.
+
+        Examples: cdk context
+        
+        Clear cached values: cdk context --clear
+
+        Used when working with cached lookups like existing VPCs or availability zones.
+
+
+    If I already ran cdk synth, why does cdk deploy synthesize again?
+        Yes, by default cdk deploy synthesizes the application again.
+
+        Your Python Code
+            │
+            ▼
+        cdk deploy
+            │
+            ▼
+        1. Runs your Python application
+            │
+            ▼
+        2. Synthesizes CloudFormation
+            │
+            ▼
+        3. Compares with deployed stack
+            │
+            ▼
+        4. Uploads assets (if any)
+            │
+            ▼
+        5. CloudFormation Deploy
+            │
+            ▼
+        AWS Resources
+
+    cdk deploy doesn't simply trust the old files in cdk.out. 
+    It regenerates the CloudFormation template from your current source code 
+    to make sure it's deploying the latest version.
+
+    cdk.out is the output directory for the synthesis step.
+        It serves several purposes:
+            Lets you inspect the generated CloudFormation template.
+            Provides the artifacts that CDK and CloudFormation use during deployment.
+            Helps with debugging and testing.
+
+    What is cdk.out used for?
+        cdk.out is the Cloud Assembly output directory. It contains the synthesized 
+        CloudFormation templates and deployment artifacts generated from the CDK 
+        application. Both cdk synth and cdk deploy generate or refresh these 
+        artifacts. It does not store deployment results or resource status; 
+        those are managed by CloudFormation in AWS.
+
+    cdk.out
+    ---------------
+        MyCdkApp
+            cdk synth
+
+            cdk.out/
+                ├── MyCdkApp.template.json (It is the CloudFormation template generated from your Python CDK code)
+                ├── manifest.json
+                ├── tree.json
+                ├── cdk.out
+                └── asset.123456789abcdef/
+
+            MyCdkApp.template.json
+                It is the CloudFormation template generated from your Python CDK code.
+
+            manifest.json
+                This is the brain of the Cloud Assembly.
+
+                It tells the CDK CLI:
+                    What stacks exist
+                    Which template belongs to which stack
+                    Which assets need uploading
+                    Which deployment order to use
+
+                Why is it important?
+                    Imagine your application has:
+                        NetworkStack
+                        DatabaseStack
+                        ECSStack
+                        MonitoringStack
+
+                    The CLI needs to know, Which template belongs to which stack?
+                    It reads manifest.json
+
+            tree.json
+
+                It contains the Construct Tree. tree.json stores that hierarchy.
+                Suppose you accidentally create any resource twice, The construct tree 
+                helps identify where each construct exists and whether IDs conflict.
+                Many IDEs and tools can visualize this tree.
+
+            cdk.out (the file)
+                Inside the cdk.out directory you may also see a small file named: cdk.out
+                
+                This is an internal marker used by the CDK CLI.
+                It simply identifies the directory as a Cloud Assembly output.
+                As a developer, you almost never interact with it.
+
+            asset.xxxxxxxx
+                Suppose your Lambda function has app.py, During synthesis
+                CDK creates asset.abcd1234/
+
+                This contains the packaged Lambda code (or references to it), 
+                ready to be uploaded during deployment.
+                
+                Similarly, if you use Docker images, you'll see metadata related to Docker assets.
+
+            MyStack.metadata.json
+                MyStack.metadata.json contains metadata about the synthesized 
+                CDK constructs. It is primarily used by CDK tools and IDE 
+                integrations for diagnostics and debugging, not for provisioning 
+                AWS resources.
+
+            MyStack.assets.json
+                Manifest describing deployable assets.
+
+                What is it used for?
+                    When you run: cdk deploy
+
+                    CDK does something like:
+
+                        Read assets.json
+                        ↓
+                        Find all assets
+                        ↓
+                        Zip Lambda
+                        ↓
+                        Upload to Bootstrap S3 Bucket
+                        ↓
+                        Update CloudFormation template
+                        ↓
+                        Deploy
+
+                    Without this file, CDK wouldn't know:
+                        which Lambda code to upload
+                        which Docker image to build
+                        which local assets must be staged
+
+5) CF state file ??
+    
+    Terraform has a state file. CDK doesn't. So after deployment, where is the CloudFormation template stored
+
+    Yes, the CloudFormation template exists both locally and in AWS after deployment.
+
+    Where is the template stored in AWS?
+        cdk deploy, CDK sends MyStack.template.json to CloudFormation
+        CloudFormation stores it inside the CloudFormation Stack.
+
+        There is a Template tab (or "Template" view) where you can see the 
+        exact CloudFormation template that was deployed.
+
+    Why doesn't CDK need a state file?
+        Because CloudFormation already knows everything.
+
+        Example: Suppose your stack has
+            EC2, S3, IAM
+
+            CloudFormation stores
+                Logical IDs
+                Physical IDs
+                Current properties
+                Resource dependencies
+                Stack outputs
+                Stack status
+
+            It already knows the complete state of the stack.
+            CDK simply asks CloudFormation: Here's my new desired template. Please update the stack.
+            
+            CloudFormation figures out what needs to change.
+
+    Then how does cdk diff work?
+        Many people think it compares against cdk.out. It doesn't.
+        
+        The flow is:
+            Python Code
+                │
+                ▼
+            Generate NEW Template
+                │
+                ▼
+            Download Current Template
+            from CloudFormation
+                │
+                ▼
+            Compare
+
+        Notice: It compares against CloudFormation, not your old local template.
+
+6) Core CDK 
+
+    1. What is App()?
+
+        App() is the root object of an AWS CDK application. It acts as the top-level 
+        container that holds one or more CDK stacks.
+        
+        app = cdk.App()
+
+        The App stores:
+            All the Stacks
+            The complete Construct Tree (stacks and their resources)
+            Context and configuration used during synthesis
+
+    2. Why do we need it?
+
+        Every CDK application must have an App because:
+            It is the entry point of the CDK application.
+            It contains all the stacks.
+            It synthesizes the stacks into CloudFormation templates.
+
+        Without an App, you cannot create or deploy stacks.
+
+    3. Can there be multiple Apps?
+        
+        Yes, but typically one App per CDK project is the standard practice.
+
+        Example:
+            app1 = cdk.App()
+            app2 = cdk.App()
+        This is valid, but uncommon.
+
+    4. What is a Stack?
+
+        A Stack is a logical collection of AWS resources that are deployed together as a single unit.
+        
+        MyStack
+        │
+        ├── VPC
+        ├── EC2
+        ├── S3
+        ├── IAM Role
+        └── Security Group
+
+        All these resources belong to one stack.
+
+        In CDK:
+            class MyStack(Stack):
+
+                def __init__(self, scope, construct_id, **kwargs):
+                    super().__init__(scope, construct_id, **kwargs)
+
+                    s3.Bucket(self, "Bucket")
+
+                    ec2.Vpc(self, "Vpc")
+
+        Everything created inside MyStack belongs to that stack.
+
+
+    5. Why does every Stack become a CloudFormation Stack?
+
+        In AWS CDK each stack is segregated separately, so while deployment it was easy
+        and each stack genertes a CFT.
+
+    6. Why do we even need Stacks?
+
+        Imagine everything in one huge stack.
+        100 EC2, 40 Lambdas, 30 Databases
+
+        Problems:
+            huge deployments
+            difficult rollback
+            long deployment time
+            one failure can roll back everything
+
+        Instead split them.
+            Network Stack
+            Application Stack
+            Database Stack
+            Monitoring Stack
+            Security Stack
+
+        Each can be deployed independently.
+
+    7. How many Stacks should a project have?
+
+        There is no fixed number. Depends on the project.
+
+    8. Cross-Stack References
+
+        Suppose:
+            NetworkStack  creates  VPC
+            ApplicationStack needs that VPC.
+            Instead of creating another VPC, Inside ApplicationStack we call it 
+            and use it, so the VPC is created.
+
+        CDK automatically creates the required CloudFormation exports/imports.
+
+    6. Nested Stacks
+
+        Sometimes one stack becomes huge. 
+        Instead of Application Stack 200 Resources Split into smaller stacks.
+
+        Application Stack
+        │
+        ├── Compute Nested Stack
+        ├── Database Nested Stack
+        ├── Monitoring Nested Stack
+
+        These are called Nested Stacks.
+
+        Important: They still belong to one parent CloudFormation Stack.
+        
+        Use Nested Stacks when:
+            template becomes very large
+            logical separation is needed
+            reusable internal organization
+
+    7. Stack Dependencies
+
+        Sometimes one stack must be deployed before another.
+        Example:
+            Network Stack
+            creates
+            VPC
+
+            ↓
+
+            Application Stack
+            creates EC2
+
+        app_stack.add_dependency(network_stack)
+
+    8. Environment (env)
+
+        A Stack can target a specific AWS Account and Region.
+        MyStack(
+            app,
+            "ProdStack",
+            env=cdk.Environment(
+                account="123456789012",
+                region="ap-south-1"
+            )
+        )
+
+        Without env:
+            CDK creates an environment-agnostic stack, which resolves the account 
+            and region from the CLI credentials at deployment time.
+
+    9. Naming Conventions
+
+        Good names make deployments easier to manage.
+        NetworkStack, ApplicationStack, DatabaseStack
+
+    10. What is a Construct?
+
+        A Construct is the basic building block of AWS CDK.
+        Everything you create in CDK is a construct.
+
+        Examples:
+            App
+            Stack
+            VPC
+            EC2
+            S3 Bucket
+            Lambda
+            IAM Role
+            Security Group
+        All of these are constructs.
+
+        app = cdk.App()                     # Construct
+        stack = MyStack(app, "MyStack")     # Construct
+        bucket = s3.Bucket(                 # Construct
+            stack,
+            "MyBucket"
+        )
+
+        Why is everything a Construct?
+            Because CDK follows a hierarchical composition model where small 
+            building blocks are combined to create larger infrastructure components.
+
+        Construct(scope, id, props)
+            Scope → Who is my parent?
+            ID → What is my unique name within that parent?
+            Props → How should I be configured?
+
+    11. Construct Hierarchy
+
+        Every construct has a parent.
+
+        Example:
+            App
+            │
+            └── Stack
+                │
+                ├── Bucket
+                ├── VPC
+                └── Lambda
+
+        Relationship:
+            App
+            ↓
+            Stack
+            ↓
+            Resources
+
+        This hierarchy is called the Construct Tree.
+
+    12. Scope
+
+        Scope is the parent construct. It determines where a new construct is created in the construct tree.
+
+        Every construct constructor begins like this Bucket(scope, id, props)
+
+        bucket = s3.Bucket(
+            self,
+            "MyBucket"
+        )
+
+        Scope is the parent construct. It tells CDK Where should I create this construct.
+
+        Here self = current Stack
+        Meaning Create Bucket, inside this Stack
+
+    13. ID
+
+        Every construct needs an ID.
+        Example:
+            Bucket(
+                self,
+                "LogsBucket"
+            )
+        
+        Here LogsBucket is the construct ID.
+
+        Purpose:
+            Must be unique within its parent.
+            Used to build logical IDs in CloudFormation.
+            Helps identify constructs in the construct tree.
+
+        two constructs cannot have the same ID, Inside the same scope
+        CDK throws an error because IDs must be unique within the same parent.
+
+        However, different scopes can reuse the same ID:
+            StackA
+            └── Bucket
+
+            StackB
+            └── Bucket
+        This is valid because the parent scopes are different.
+
+    14. Props
+
+        Props means properties/configuration.
+
+        bucket = s3.Bucket(
+            self,
+            "LogsBucket",
+            versioned=True,
+            encryption=s3.BucketEncryption.S3_MANAGED
+        )
+        Here versioned=True, encryption are properties (props). These settings configure the construct.
+
+    15. Construct Tree
+
+        Every construct belongs to a tree.
+
+        App
+        │
+        ├── NetworkStack
+        │      ├── VPC
+        │      ├── PublicSubnet1
+        │      ├── PublicSubnet2
+        │      └── IGW
+        │
+        └── AppStack
+            ├── ALB
+            ├── EC2
+            └── SecurityGroup
+
+        When you call app.synth()
+        CDK walks this entire tree and generates CloudFormation templates.
+
+    16. Parent-Child Relationship
+
+        Every construct has exactly one parent.
+
+        bucket = s3.Bucket(
+            self,
+            "Bucket"
+        )
+
+        Stack
+        │
+        └── Bucket
+
+        The bucket's parent is the stack.
+
+7) Construct levels
+
+    L1 Constructs (Cfn*)
+    L2 Constructs
+    L3 Constructs (Patterns)
+
+    Why are there different construct levels?
+        Suppose you want to create an S3 bucket.
+        
+        There are three ways:
+            Tell CloudFormation exactly what to create (L1)
+            Use an AWS CDK object that makes life easier (L2)
+            Use a pre-built architecture that creates multiple resources (L3)
+
+        L1 = Buy individual bricks
+        L2 = Buy a ready-made wall
+        L3 = Buy an entire furnished room
+
+        L1 Constructs (Low Level): CloudFormation Construct
+            
+            Also called CloudFormation Constructs
+            Every L1 construct starts with Cfn
+
+            CfnBucket, CfnInstance, CfnVPC
+
+            They are auto-generated directly from CloudFormation resource specifications.
+            CDK simply maps each CloudFormation resource to a Python class.
+
+            from aws_cdk import aws_s3 as s3
+
+            bucket = s3.CfnBucket(
+                self,
+                "MyBucket"
+            )
+
+            Why use L1?
+                Because every CloudFormation property is available.
+                Nothing is hidden. You configure everything yourself.
+
+            Advantages:
+                Complete CloudFormation support
+                Every property available
+                New AWS services appear here first
+
+            Disadvantages:
+                Very verbose
+                Little validation
+                No helper methods
+                Easy to misconfigure
+
+        L2 Constructs (High Level): High-Level Construct
+
+            These are what 95% of CDK developers use.
+
+            Example: Instead of CfnBucket, you simply write Bucket
+
+            Example:
+                bucket = s3.Bucket(
+                    self,
+                    "Bucket"
+                )
+            Much cleaner.
+
+            What makes L2 different?
+                L2 provides:
+                    sensible defaults
+                    validation
+                    helper methods
+                    object-oriented APIs
+
+            Instead of exposing every CloudFormation property directly, 
+            it offers a more Pythonic interface.
+
+            Example:
+                bucket = s3.Bucket(
+                    self,
+                    "LogsBucket",
+                    versioned=True,
+                    encryption=s3.BucketEncryption.S3_MANAGED,
+                    removal_policy=cdk.RemovalPolicy.DESTROY
+                )
+
+            Simple and Readable.
+
+            Helper Methods:
+            -----------------
+                L2 constructs also expose helper methods.
+
+                Example: bucket.grant_read(role)
+
+                    CDK automatically creates the required IAM policy.
+                    Without L2 you'd manually define IAM resources.
+
+                Advantages:
+                    Easier to read
+                    Less code
+                    Validation
+                    Default security settings
+                    Helper methods
+                    Recommended for production
+
+        L3 Constructs (Patterns): Pattern Construct
+        
+            These are called Patterns
+            They don't create just one resource.
+            They create multiple resources that work together.
+
+            Suppose you need:
+                Lambda
+                API Gateway
+                IAM Role
+                CloudWatch Logs
+                Permissions
+
+            Instead of writing all five separately...
+            An L3 construct creates everything.
+
+            Example: LambdaRestApi(...)
+
+                creates Lambda
+                ↓
+                API Gateway
+                ↓
+                Permissions
+                ↓
+                CloudWatch Logs
+                ↓
+                IAM Role
+
+                One line of code. Many AWS resources.
+
+        Which one is used in real projects?
+            Typical enterprise usage looks like this
+                L2 Constructs  → 90-95%
+                L3 Patterns    → 5-10%
+                L1 Constructs  → Rare (only when needed)
+
+        All constructs can be used in combination, because L3 is built using L2
+        & L2 is synthesized into L1 CFT.
+
+        Everything ultimately becomes CloudFormation Resources during app.synth().
+
+8) IDs & Logical IDs & Physical Names
+
+    A Construct ID is the name you give to a construct within its parent scope.
+
+    bucket = s3.Bucket(
+        self,
+        "LogsBucket"
+    )
+    LogsBucket is the Construct ID.
+
+    Logical IDs:
+        A Logical ID is the identifier that appears in the generated CloudFormation 
+        template. After app.synth(), the template might contain:
+
+        Resources:
+            LogsBucketA1B2C3D4:
+                Type: AWS::S3::Bucket
+
+        Logical ID: LogsBucketA1B2C3D4
+
+        CDK automatically generates the logical ID by combining the construct path with a hash to keep it unique and stable.
+
+        CloudFormation uses the Logical ID to:
+            Track resources
+            Update resources
+            Delete resources
+
+        Important: If the Logical ID changes, CloudFormation may treat it as 
+        a new resource and replace the old one.
+
+    Physical Names:
+        A Physical Name is the actual name of the resource in AWS.
+
+        Example: An S3 bucket might appear in AWS as: my-company-prod-logs-12345
+        This is the physical name.
+
+        Relationship
+            Construct ID
+                │
+                ▼
+            Logical ID
+                │
+                ▼
+            Physical Resource Name
+
+9) Scope & Node
+
+    Scope is the parent construct.
+    Construct(scope, id, props)
+
+    Every construct has a property called: construct.node
+
+    The Node stores metadata about the construct's position in the construct tree.
+        
+        Think of it as the construct's identity card.
+            It contains information like:
+                Parent
+                Children
+                Path
+                Unique Address
+                Metadata
+                Dependencies
+
+        Example:
+            bucket = s3.Bucket(
+                self,
+                "LogsBucket"
+            )
+
+        CDK internally creates:
+            Bucket Construct
+                │
+                ▼
+                Node
+
+        The Node knows:
+
+            Parent = MyStack
+            Children = None
+            Path = App/MyStack/LogsBucket
+            ID = LogsBucket
+
+        Each construct has its own Node.
+
+        CDK traverses the construct tree using these Nodes to:
+            Discover every construct
+            Build parent-child relationships
+            Generate logical IDs
+            Resolve dependencies
+            Produce CloudFormation templates
+
+        Without Nodes, CDK wouldn't know how constructs are connected.
+
+
+10) cdk.json & cdk.context.json
+
+    cdk.json is the main configuration file for an AWS CDK application. 
+    It tells the CDK CLI how to run the application (for example, python app.py) 
+    and can also contain watch settings, context values, and feature flags.
+
+    cdk.context.json is a cache file used by CDK to store the results of 
+    AWS context lookups, such as existing VPCs, Availability Zones, 
+    or SSM parameters. Caching these values avoids repeated AWS API 
+    calls and makes subsequent cdk synth operations faster and deterministic.
+
+
+11) Package Management in AWS CDK (Python)
+
+    What is Package Management?
+        Package management is the process of:
+            Installing libraries
+            Updating libraries
+            Removing libraries
+            Managing dependency versions
+
+    In Python CDK, this is handled using pip (or sometimes Poetry in enterprise 
+    projects).
+
+    to check installed packages, pip List
+    show package details pip show aws-cdk-lib
+    Generate the currently installed packages: pip freeze
+    pip freeze > requirements.txt
+
+    aws-cdk-lib Main AWS CDK library
+    constructs - Base Construct framework used by CDK
+
+    Why is constructs a separate package?
+        CDK is built on the Constructs programming model, which is reusable beyond AWS CDK. By keeping constructs separate, other frameworks (like the AWS CDK and CDK for Kubernetes) can share the same construct library.
+
+    requirements.txt contains runtime dependencies needed by the application.
+    requirements-dev.txt contains development tools such as testing, linting, formatting, and type-checking packages.
+
+    
+12) cdk bootstrap
+
+    cdk bootstrap prepares an AWS account and region to deploy CDK applications.
+    Installing the CDK infrastructure that CDK itself needs.
+
+    It creates a special CloudFormation stack called the CDK Toolkit stack.
+    
+    During deployment, CDK has to upload things like:
+        Lambda ZIP files
+        Docker images
+        CloudFormation templates
+        Other assets
+
+    Where should it upload them? It needs:
+        An S3 bucket
+        IAM roles
+        (Optionally) an ECR repository
+
+    These supporting resources don't exist automatically.
+    So CDK creates them during bootstrapping.
+
+    Environment is not bootstrapped, if we dont run cdk bootstrap
+
+    Command:
+        Bootstrap the current account and region:
+            cdk bootstrap
+
+        Bootstrap a specific environment:
+            cdk bootstrap aws://123456789012/ap-south-1
+        
+13) Context
+
+    Configuration values available during synthesis.
+
+    cdk synth --context env=dev
+
+    in python:
+        env = self.node.try_get_context("env")
+    Use case: Environment-specific values (dev, test, prod)
+
+14) Environment Variables
+
+    Values passed from the operating system.
+
+    export DB_NAME=mydb
+
+    import os
+    db = os.getenv("DB_NAME")
+
+    Difference from Context: Environment variables come from the OS, not the CDK CLI.
+
+15) CloudFormation Parameters
+
+    Deployment-time inputs provided to CloudFormation.
+    Values supplied at deployment time.
+
+    cdk.CfnParameter(
+        self,
+        "InstanceType"
+    )
+    CloudFormation asks for the value during deployment.
+    Use when: The deployer should choose the value.
+
+16) Outputs
+     
+    Expose useful values after deployment.
+
+    cdk.CfnOutput(
+        self,
+        "BucketName",
+        value=bucket.bucket_name
+    )
+
+    BucketName = my-bucket
+    Useful for cross-stack references or sharing information.
+
+17) Tokens
+
+    Placeholders for values resolved later.
+    A placeholder for a value that isn't known during synthesis.
+        bucket.bucket_name
+
+        Before deployment: ${Token[TOKEN.123]}
+
+        After deployment: my-company-logs
+        
+        CDK resolves the token during deployment.
+
+18) Lazy Values
+    
+    Values computed only when needed, usually during synthesis.
+
+    Example: Lazy.string(...)
+    
+    Useful when the value depends on something determined later.
+
+19) Assets
+    
+    Files uploaded during deployment.
+
+    Examples:
+        Lambda ZIP
+        Configuration files
+        Static website files
+
+    CDK uploads these to the bootstrap S3 bucket.
+
+
+20) Docker Assets
+
+    Docker images built and pushed to ECR.
+    Docker images built and uploaded automatically.
+    DockerImageAsset(...)
+
+
+21) Lambda Assets
+    
+    Lambda code packaged and uploaded to S3.
+    Source code for Lambda functions.
+
+    Example: lambda_.Code.from_asset("lambda/")
+
+
+22) Removal Policies
+
+    Decides whether resources are retained, deleted, or snapshotted when 
+    a stack is removed.
+
+    Controls what happens when a stack is deleted.
+
+    Example: 
+        RemovalPolicy.DESTROY
+            or
+        RemovalPolicy.RETAIN
+
+    Options:
+        DESTROY → Delete resource
+        RETAIN → Keep resource
+        SNAPSHOT → Take snapshot first (supported services)
+
+23) Escape Hatches 
+
+    Allows access to the underlying L1 construct from an L2 construct.
+
+    Use when L2 doesn't expose a CloudFormation property.
+
+    Example: cfn_bucket = bucket.node.default_child
+    Modify the underlying CfnBucket.
+
+
+24) Aspects
+
+    Apply a rule or validations to every construct in the construct tree.
+
+    Examples:
+        Ensure encryption
+        Check tags
+        Validate security
+
+    Think of them as global rules.
+
+
+25) Tags
+
+    Apply metadata to AWS resources.
+
+    Example:
+        cdk.Tags.of(stack).add(
+            "Environment",
+            "Production"
+        )
+
+    AWS Resource: Environment = Production
+
+    Useful for:
+        Cost allocation
+        Ownership
+        Automation  
+
+
+26) Dependencies
+
+    Controls deployment order.
+
+    Example: app_stack.add_dependency(network_stack)
+
+
+27) Account-specific Configuration
+
+    Different AWS accounts use different values.
+
+    Example:
+
+        Development
+        ↓
+        111111111111
+
+        Production
+        ↓
+        222222222222
+
+    You can select configuration based on the account ID.
+
+
+28) Region-specific Configuration
+
+    Different AWS regions use different values.
+
+    Example:
+        ap-south-1
+        AMI-1
+
+        us-east-1
+        AMI-2
+
+    CDK can choose values depending on the deployment region.
+
+29) Quick check 
+
+    | Topic                              | One-line Description                                                                    |
+    | ---------------------------------- | --------------------------------------------------------------------------------------- |
+    | **Context**                        | Configuration available during synthesis.                                               |
+    | **Environment Variables**          | Values read from the operating system.                                                  |
+    | **Parameters**                     | Deployment-time inputs provided to CloudFormation.                                      |
+    | **Outputs**                        | Values displayed after deployment.                                                      |
+    | **Tokens**                         | Placeholders for values resolved later.                                                 |
+    | **Lazy Values**                    | Values computed only when required.                                                     |
+    | **Assets**                         | Files uploaded by CDK during deployment.                                                |
+    | **Docker Assets**                  | Docker images built and pushed to ECR.                                                  |
+    | **Lambda Assets**                  | Lambda code packaged and uploaded to S3.                                                |
+    | **Removal Policies**               | Decide whether resources are retained, deleted, or snapshotted when a stack is removed. |
+    | **Escape Hatches**                 | Access the underlying L1 construct for advanced customization.                          |
+    | **Aspects**                        | Apply validation or modifications across many constructs.                               |
+    | **Tags**                           | Add metadata to AWS resources.                                                          |
+    | **Dependencies**                   | Control deployment order between stacks or constructs.                                  |
+    | **`--context`**                    | Pass context values from the CDK CLI.                                                   |
+    | **Account-specific Configuration** | Configure resources differently based on the AWS account.                               |
+    | **Region-specific Configuration**  | Configure resources differently based on the AWS region.                                |
+
+
+
+30) organizational standards of pipeline topics.
+
+    credentials:
+        In a modern organization, developers should ideally not use long-lived 
+        IAM user access keys (aws configure) at all.
+
+        1) IAM User + aws configure (Not Recommended)
+        
+            ~/.aws/credentials
+                Access Key
+                Secret Key
+        
+        2) IAM Identity Center (AWS SSO)
+
+            Most enterprises now use IAM Identity Center (formerly AWS SSO).
+
+                Developer
+                    │
+                    ▼
+                Corporate Login
+                (Azure AD / Okta / Google)
+                    │
+                    ▼
+                IAM Identity Center
+                    │
+                    ▼
+                Temporary Credentials
+                    │
+                    ▼
+                AWS CLI / CDK
+
+            Instead of: aws configure  you run: aws configure sso then aws sso login
+            
+            Steps:
+                aws configure sso
+                SSO session name:
+                SSO start URL: https://company.awsapps.com/start
+                SSO Region: 
+                CLI opens your browser.
+                    You log in using:
+                        Azure AD
+                        or
+                        Okta
+                
+                After login, CLI displays:
+                    Available Accounts:
+                        Production
+                        Development
+                        Sandbox
+                    Choose one.
+
+                Then: Permission Set
+                    Developer
+                    ReadOnly
+                    Admin
+
+                Choose one.
+
+            CLI asks: Profile name
+            Example: dev
+            Now your configuration is complete.
+
+            aws sso login --profile dev
+            aws sts get-caller-identity --profile dev
+
+            What gets stored?
+                Instead of: ~/.aws/credentials
+                    Access Key
+                    Secret Key
+
+                You'll have something like: ~/.aws/config
+
+                Example:
+                    [profile dev]
+                    sso_session = company
+                    sso_account_id = 123456789012
+                    sso_role_name = Developer
+                    region = ap-south-1
+
+                Temporary authentication tokens are cached 
+                (typically under ~/.aws/sso/cache).
+                No long-lived access keys.
+
+            ~/.aws/config
+                [profile dev]
+                [profile prod]
+                [profile sandbox]
+
+                These profiles exist only on your laptop.
+
+            What does a profile contain?
+
+                A profile tells the AWS CLI:
+                    Which AWS account to use
+                    Which IAM Identity Center role (permission set) to use
+                    Which region to use
+                    Which SSO session to use
+
+                Can I create multiple profiles?
+                    Yes. Unlimited (practically).
+
+                Can two profiles point to the same AWS account?
+                    Yes.
+                    Example:
+                        [profile dev-mumbai]
+                        account = 111111111111
+                        region = ap-south-1
+
+                        [profile dev-virginia]
+                        account = 111111111111
+                        region = us-east-1
+
+                    Same AWS account. Different default region. Perfectly valid.
+                
+                ~/.aws/
+                    ├── config
+                    ├── credentials
+                    └── sso/
+                        └── cache/
+
+                All these profiles were stored in the config, It is a plain text INI-style configuration file.
+
+
+            CDK automatically uses the temporary credentials.
+                Advantages:
+                    No access keys stored permanently
+                    Short-lived credentials
+                    MFA support
+                    Easy to revoke access
+                This is the recommended approach for developers.
+
+        3) AssumeRole
+
+            Some organizations still have IAM users, but they don't grant them direct permissions.
+            
+            Instead:
+                IAM User
+                ↓
+                AssumeRole
+                ↓
+                Temporary Credentials
+                ↓
+                Deploy
+
+            aws sts assume-role
+
+            AWS uses STS (Security Token Service) to issue temporary credentials.
+
+            Why AssumeRole?
+                Imagine your company has three AWS accounts.
+
+                AWS Organization
+
+                ├── Development
+                │      111111111111
+                │
+                ├── UAT
+                │      222222222222
+                │
+                └── Production
+                    333333333333
+
+                Your identity is in the Development account.
+                Instead of creating IAM users in every account:
+                You have one identity, and assume different roles.
+
+                Rahul
+                ↓
+                Developer Identity
+                ↓
+                Assume Dev Role
+                or
+                Assume UAT Role
+                or
+                Assume Prod Role
+
+            AssumeRole Works:
+                Create IAM Role and add policy and attach permissions
+
+
+
+        4) OIDC (CI/CD, Not Developer Laptops)
+
+            OIDC is primarily for workloads, especially CI/CD systems.
+            
+            GitHub Actions
+                    │
+            OIDC Token
+                    │
+                    ▼
+            AWS IAM Role
+                    │
+                    ▼
+            Temporary Credentials
+                    │
+                    ▼
+            cdk deploy
+
+            No AWS secrets are stored in GitHub. The same idea works with 
+            other CI/CD platforms that support OIDC.
+
+        
+        What about ~/.aws/credentials?
+            With IAM Identity Center, you generally don't have long-lived 
+            access keys in ~/.aws/credentials.
+            
+            Instead, the AWS CLI stores temporary session information and 
+            cached tokens (for example under ~/.aws/sso/cache), and refreshes 
+            credentials as needed after you authenticate with aws sso login.
+
+        Where are AWS CLI profiles stored?
+            AWS CLI profiles are stored locally in the user's .aws directory. 
+            The profile configuration is typically kept in the config file 
+            (INI format), while long-lived IAM access keys, if used, are 
+            stored in the credentials file. For AWS IAM Identity Center (SSO), 
+            temporary authentication tokens are cached separately under the 
+            sso/cache directory.
+
+        Do enterprises create IAM users for every employee?
+            Generally, no. Most enterprises use AWS IAM Identity Center 
+            integrated with a corporate identity provider such as Microsoft Entra ID 
+            (Azure AD) or Okta. Users authenticate with their corporate credentials, 
+            and IAM Identity Center grants access by assigning permission sets that 
+            map to IAM roles in AWS accounts. This avoids long-lived IAM users and 
+            scales much better for multi-account environments.
+
+    Github pipeline, account and env management:
+
+        In enterprise applications, pipeline runs like 
+            cdk deploy --context env=dev
+            cdk deploy --context env=UAT
+            cdk deploy --context env=prod
+
+        inside app.py
+            env_name = app.node.try_get_context("env")
+
+        Read configuration:
+            Most companies keep a configuration file.
+
+            config/
+                dev.json
+                uat.json
+                prod.json
+
+            in these they mention account and region
+            then in app file 
+
+            if env_name == "dev":
+                config = dev_config
+
+            elif env_name == "prod":
+                config = prod_config
+
+            Create Environment
+                env = cdk.Environment(
+                    account=config["account"],
+                    region=config["region"]
+                )
+
+            CdkStack(app,"CdkStack",env=env)
+
+        
+
+
+
+        
+
+        
+
+

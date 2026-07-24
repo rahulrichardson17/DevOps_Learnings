@@ -738,7 +738,6 @@
             | Best for environment config                | Best for deployment-time values |
 
 
-
 23) Escape Hatches
 
         Sometimes L2 doesn't expose a property.
@@ -768,5 +767,3 @@
                 "Properties.NewFeature",
                 "SomeValue"
             )
-
-            

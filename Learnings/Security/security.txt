@@ -1,0 +1,9 @@
+1) SAST, SCA, DAST
+    SAST - Static Application Security Testing (SonarQube)
+    SCA - Software Composition Analysis ()
+    DAST - Dynamic Application Security Testing
+
+2)Scenarios
+
+    Invalid or unauthored certificates.
+    Hardcoded values, Hardcoded passwords.
