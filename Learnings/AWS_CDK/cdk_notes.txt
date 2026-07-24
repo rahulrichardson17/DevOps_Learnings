@@ -1849,9 +1849,25 @@
 
             CdkStack(app,"CdkStack",env=env)
 
-        
+nums = [2,3,4,5,4,6,6]
+duplicates     
+seen = ()
+duplicates = []
 
+for num in nums:
+    if num in seen and num not in duplicates:
+        duplicates.add(num)
+    else:
+        seen.add(num)
 
+duplicate element count
+nums = [2,3,4,4,4,6,6]
+    for i in nums:
+        if i in seen and 
+
+highest element
+second highest
+Lowest giv eme 
 
         
 
