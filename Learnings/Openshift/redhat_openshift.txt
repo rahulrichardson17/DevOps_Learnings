@@ -1,0 +1,233 @@
+1) What is Red Hat?
+    Red Hat is an enterprise software company that builds, 
+    supports, and sells open-source software for businesses.
+
+    Think of it like this:
+        Linux is open source.
+        Kubernetes is open source.
+        Ansible is open source.
+
+    Red Hat takes these open-source projects, adds:
+        Enterprise support
+        Security patches
+        Long-term maintenance
+        Certifications
+        Documentation
+        Testing
+        Compliance
+    and sells them to enterprises.
+
+    Since 2019, Red Hat has been owned by IBM, but it continues to 
+    operate as a separate company.
+
+    
+    What does Red Hat mainly focus on?
+
+        Red Hat products are mainly around:
+            Operating Systems
+            Containers & Kubernetes
+            Automation
+            Middleware
+            Virtualization
+            Cloud
+            Storage
+            Security
+            Developer Platforms
+
+
+2) Major Red Hat Products
+
+    1. Red Hat Enterprise Linux (RHEL)
+        This is the flagship product. It is an enterprise version of Linux.
+        
+        Used for:
+            AWS EC2
+            Azure VMs
+            VMware
+            Datacenters
+            Banks
+            Telecom
+            Government
+        
+        Ubuntu
+        CentOS
+        Debian
+        Fedora
+        ↓
+        RHEL
+
+        Companies prefer RHEL because of
+            Enterprise support
+            Security updates
+            Stable packages
+            Certifications
+
+    2. OpenShift
+        This is probably Red Hat's most famous cloud product.
+        OpenShift is Enterprise Kubernetes Platform.
+
+        OpenShift =
+            Kubernetes
+                + Docker/CRI-O runtime
+                + Networking
+                + Registry
+                + Monitoring
+                + Logging
+                + Security
+                + CI/CD
+                + Web Console
+                + RBAC
+                + Operators
+        Instead of installing everything yourself, OpenShift provides it as one enterprise platform.
+
+    3. Red Hat Advanced Cluster Management (ACM)
+        Used when companies have many Kubernetes clusters.
+
+        Example:
+            Production Cluster
+            Development Cluster
+            QA Cluster
+            AWS Cluster
+            Azure Cluster
+            OpenShift Cluster
+
+        Instead of managing them separately,
+        ACM manages all from one place.
+
+    4. Red Hat Advanced Cluster Security (ACS)
+        Security platform for Kubernetes.
+
+        Features
+            Vulnerability scanning
+            Runtime security
+            Network policy analysis
+            Image scanning
+            Compliance checks
+
+3) What OpenShift Adds
+
+    Plain Kubernetes: kubectl
+    OpenShift: oc
+    
+    The oc command is an extension of kubectl.
+
+    kubectl get pods
+    oc get pods
+    oc apply -f deployment.yaml
+
+
+4) oc architecture
+
+    Users
+    ↓
+    OpenShift Console
+    ↓
+    API Server
+    ↓
+    Scheduler
+    ↓
+    Controller Manager
+    ↓
+    Worker Nodes
+    ↓
+    Containers
+
+    Nothing different from Kubernetes. But OpenShift installs many extra operators.
+
+
+    OpenShift Cluster
+
+        Master Nodes
+            API Server
+            Scheduler
+            Controller
+            etcd
+
+        Worker Nodes
+            CRI-O
+            Kubelet
+            Pods
+
+        Infrastructure Nodes
+            Ingress
+            Monitoring
+            Registry
+            Logging
+
+    Large companies often dedicate infrastructure nodes for platform services.
+
+5) CLI
+
+    Login: oc login
+
+    projects: oc projects
+
+    switch projects: oc project dev
+
+    list pods: oc get pods
+
+    list deployments: oc get deployments
+
+    logs: oc logs pod-name
+
+    shell: oc rsh pod-name
+
+    copy files: oc rsync
+
+    debug: oc debug node/node01
+
+
+    projects:
+
+        In Kubernetes we have namespaces here in oc we have projects
+            
+            kubectl create namaspace dev
+
+            oc new-project dev
+
+            Project = namaspace + quotas + users + policies + annotations
+
+    Registery:
+        OpenShift has and internal Registery, instead of docker hub docker.io
+        we can push to the openshift-image-Registery
+
+        It was private, secure, fast, internal Network
+
+
+        Image Streams:
+            One of the biggest oc Features, normal k8 deployment points directly 
+            to the image like ngnix:1.25
+            But in OpenShift, deployment points to image Streams
+
+            ImageStream
+            ↓
+            nginx
+            ↓
+            latest
+            ↓
+            Actual Image
+
+            If image changes, Deployment automatically updates. Very useful.
+
+            ImageStream tracks image changes, The ImageStream detects that a new image is available (or is updated via oc import-image or by the integrated registry).
+            So yes, the ImageStream now knows that v2 is the current image.
+            The ImageStream is updated, but the Deployment continues running the old Pods.
+            Nothing happens automatically.
+
+            If Image Change Trigger enabled, Now OpenShift automatically starts a new rollout.
+
+            Does it update the Deployment YAML?
+                No, it doesn't rewrite your Deployment YAML file on disk (for example, the YAML stored in Git).
+                Instead, it updates the running Deployment object in the cluster by initiating a new rollout with the new image.
+
+        Routes:
+
+            Instead of Kubernetes Ingress, OpenShift provides Route, No separate ingress YAML is required for many common cases.
+
+            oc expose svc flask-service, Automatically creates Route
+
+        
+        Containers Don't Run as Root:
+            In Kubernetes Many Docker images USER root
+            OpenShift blocks them Instead random UID, This is one of the biggest surprises for newcomers.
+            
