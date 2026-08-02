@@ -231,3 +231,58 @@
             In Kubernetes Many Docker images USER root
             OpenShift blocks them Instead random UID, This is one of the biggest surprises for newcomers.
             
+6) Enterprise setup
+
+    Step 1: Create a Red Hat Account
+    Go to: Red Hat Hybrid Cloud Console (https://console.redhat.com?utm_source=chatgpt.com)
+        Click Register if you don't already have a Red Hat account. It's free.
+
+    Step 2: Open the Developer Sandbox
+    Go to: OpenShift Developer Sandbox (https://developers.redhat.com/developer-sandbox?utm_source=chatgpt.com)
+    Click: Start using the Developer Sandbox
+    Log in with your Red Hat account.
+
+
+    OpenShift Security Hierarchy
+    ---------------------------->
+
+        Cluster
+        │
+        ├── Users
+        │
+        ├── Groups
+        │
+        ├── Cluster Roles
+        │
+        ├── Projects
+        │     │
+        │     ├── Roles
+        │     ├── RoleBindings
+        │     ├── Deployments
+        │     ├── Pods
+        │     └── Services
+        │
+        └── Cluster Admin
+
+        Everything revolves around permissions.
+
+    
+    What is Cluster Scope?
+        Suppose there are 500 projects.
+
+        OpenShift Cluster
+            Project-A
+            Project-B
+            Project-C
+            Project-D
+            ...
+            Project-500
+
+        Now imagine you run: oc get deployments --all-namespaces
+            or 
+        you're viewing Workloads → Deployments at the cluster level.
+
+        You're asking OpenShift: Show me every Deployment in the entire cluster.
+        Should a normal developer be allowed to see everyone's applications? No
+
+        
