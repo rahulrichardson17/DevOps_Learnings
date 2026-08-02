@@ -1,0 +1,267 @@
+1) HELM
+
+    First, why was Helm created?
+        Imagine you're deploying your Flask application manually.
+        Your project may have these files:
+
+            k8s/
+                namespace.yaml
+                configmap.yaml
+                secret.yaml
+                deployment.yaml
+                service.yaml
+                ingress.yaml
+                pvc.yaml
+                statefulset.yaml
+                networkpolicy.yaml
+                hpa.yaml
+            Already 10 YAML files.
+        Now imagine tomorrow you deploy the same application to Dev, QA, UAT, Production
+
+        Now you have
+            dev/
+            deployment.yaml
+
+            qa/
+            deployment.yaml
+
+            uat/
+            deployment.yaml
+
+            prod/
+            deployment.yaml
+        
+        Soon you'll have 40-50 YAML files. Managing them becomes difficult.
+
+
+    Problem 1 - Duplicate YAMLs
+    ------------------
+    For example,
+        Dev image
+            image: flask:v1
+            replicas: 1
+
+        Production
+            image: flask:v1
+            replicas: 5
+
+        Only two values changed. Yet we copied the whole YAML. That's bad.
+
+
+    Problem 2 - Upgrades
+    ----------------
+    Suppose your app changes from flask:v1 to flask:v2
+
+    Without Helm
+        Edit deployment.yaml
+        kubectl apply -f .
+    
+    Next month v3 Again edit. Again apply.
+
+
+    Problem 3 - Installing third-party software
+    -------------------
+    Suppose your company wants to install
+
+    Prometheus
+    Grafana
+    Jenkins
+    ArgoCD
+    Elasticsearch
+    NGINX Ingress
+
+    Each one contains
+        Deployment
+        Service
+        ClusterRole
+        RoleBinding
+        ServiceAccount
+        ConfigMap
+        Secret
+        PVC
+        Ingress
+        CRDs
+
+    Sometimes 100+ YAML files.
+    Would you manually create all of them?
+        No.
+
+    Helm solves all these problems.
+        Think of Helm as: APT for Ubuntu or YUM/DNF for RHEL, but for Kubernetes.Just like sudo apt install nginx installs everything needed,
+
+        Helm installs everything required for an application in Kubernetes.
+
+        Think of Helm like an App Store
+        Without Helm
+            Developer gives you
+            100 YAML files
+            ↓
+            You apply them one by one
+        
+        With Helm
+            helm install prometheus Done. Everything gets created.
+
+
+    Real-life example
+        Without Helm
+            kubectl apply -f namespace.yaml
+            kubectl apply -f configmap.yaml
+            kubectl apply -f secret.yaml
+            kubectl apply -f deployment.yaml
+            kubectl apply -f service.yaml
+            kubectl apply -f ingress.yaml
+            kubectl apply -f pvc.yaml
+            kubectl apply -f networkpolicy.yaml
+            kubectl apply -f hpa.yaml
+
+        With Helm
+            helm install flask-app .
+
+    So what exactly is Helm?
+        Helm is a package manager for Kubernetes.
+        
+        It packages all Kubernetes resources into one reusable package called a Chart.
+            Helm
+            │
+            ▼
+            Chart
+            │
+            ▼
+            Deployment
+            Service
+            ConfigMap
+            Secret
+            PVC
+            Ingress
+            StatefulSet
+            ...
+
+        What is a Chart?
+            A Chart is simply a folder.
+
+            Example:
+                flask-chart/
+
+                Chart.yaml
+                values.yaml
+                templates/
+                    deployment.yaml
+                    service.yaml
+                    configmap.yaml
+                    secret.yaml
+                    ingress.yaml
+
+                Everything is together.
+
+        The magic of values.yaml
+
+    Instead of hardcoding
+        replicas: 3
+        image: flask:v1
+        port: 5000
+
+    Helm lets you write
+        replicas: {{ .Values.replicaCount }}
+
+        Image
+            image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+
+        Service
+            port: {{ .Values.service.port }}
+
+        Now everything comes from values.yaml
+
+    Example
+        replicaCount: 3
+        image:
+            repository: flask
+            tag: v1
+        service:
+            port: 5000
+
+        Now changing the image is easy. tag: v2
+        No need to edit Deployment YAML.
+
+    One chart, many environments
+        Development
+
+        values-dev.yaml
+        replicaCount: 1
+
+        QA
+
+        values-qa.yaml
+        replicaCount: 2
+
+        Production
+
+        values-prod.yaml
+        replicaCount: 8
+
+    Deploy
+        helm install app ./chart -f values-dev.yaml
+            or
+        helm install app ./chart -f values-prod.yaml
+
+        Same chart. Different values.
+
+    Upgrades become easy
+        Current
+        v1
+        Update
+        
+        tag: v2
+        
+        Run: helm upgrade flask-app .
+        Helm performs the update.
+
+    Rollback becomes easy
+        Suppose v2 has a bug.
+        
+        Normal Kubernetes
+            Need old deployment YAML.
+            
+        Helm
+            helm rollback flask-app 1
+        Back to the previous version.
+
+    
+    Enterprise example
+        Suppose your company wants to install Prometheus.
+
+        Without Helm: 120 YAML files
+        With Helm: helm install monitoring prometheus-community/kube-prometheus-stack
+
+    Everything gets installed automatically.
+
+    How Helm fits into your deployment flow
+
+        Developer
+            │
+            ▼
+        Docker Image
+            │
+            ▼
+        Container Registry
+            │
+            ▼
+        Helm Chart
+            │
+            ▼
+        helm install / helm upgrade
+            │
+            ▼
+        Kubernetes Cluster
+            │
+            ▼
+        Pods, Services, ConfigMaps,
+        Secrets, StatefulSets, PVCs...
+
+    Helm doesn't replace Kubernetes objects. Instead, it manages them. Think of it as a wrapper that generates 
+    and deploys those YAML files with the correct values for each environment.
+
+    Helm is a package manager and templating tool for Kubernetes that lets you define your application's 
+    Kubernetes resources once, customize them using values, install them with a single command, upgrade them easily, and roll back if needed.
+    
+
+    
