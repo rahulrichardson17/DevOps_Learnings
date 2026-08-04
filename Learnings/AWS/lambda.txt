@@ -716,3 +716,29 @@
 
             The safe practice is to publish new versions and migrate functions gradually rather than deleting versions that are still in use.
         
+        How did you manage Lambda, dependencies, and layers?
+    
+            In our project, Terraform was responsible for provisioning the Lambda infrastructure, 
+            such as the function, IAM role, CloudWatch log group, environment variables, 
+            timeout, memory, and triggers. The application team was responsible for the 
+            Lambda business logic.
+
+            For common Python libraries shared across multiple Lambda functions, 
+            we used Lambda Layers. This avoided packaging the same dependencies 
+            with every Lambda and made updates easier.
+
+            The packages (numpy, pandas, etc.) must already be packaged into a 
+            ZIP file. Terraform's job is to publish that ZIP as a Lambda Layer 
+            and attach it to the Lambda.
+
+            Instead of packaging these libraries inside every Lambda ZIP, you create one common layer.
+
+            Build the layer (one-time activity)
+                The folder must be named python for Python Lambda layers.
+
+                mkdir python
+                pip install numpy pandas -t python/
+                zip -r common-layer.zip python/
+
+                Now we have common-layer.zip and we upload it to the s3 bucket.
+                Now Terraform can use it.

@@ -428,3 +428,112 @@ data "aws_ami" "amazon_ubuntu" {
       }
     )
   }
+
+# lambda layer
+resource "aws_lambda_layer_version" "this" {
+  layer_name = "python-lambda-layers"
+  s3_bucket = "lambda-layers"
+  s3_key = "layers/packages.zip"
+  compatible_runtimes = ["python3.12"]
+}
+# now tf will create the arn and that can be used in the lambda.
+
+# create the lambda log group
+resource "aws_cloudwatch_log_group" "this" {
+  name = "/aws/lambda/notification-lambda"
+  retention_in_days = 30
+}
+
+# create iam role for lambda to use the bucket
+resource "aws_iam_role" "this" {
+  name = "notification-role"
+  assume_role_policy = jsonencode(
+    {
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Principal = {
+            Service = "lambda.amazonaws.com"
+          }
+          Action = "sts:AssumeRole"
+        }
+      ]
+    }
+  )
+}
+
+# create policy to the lambda , it needs to read it s3 bucket
+resource "aws_iam_policy" "this" {
+  name = "notification-s3-read"
+  policy = jsonencode(
+    {
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:ListBucket"
+          ]
+          Resource = [
+            "arn:aws:s3:::lambda-layers",
+            "arn:aws:s3:::lambda-layers/*"
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:ListBucket"
+          ]
+          Resource = [
+            "arn:aws:s3:::notification-bucket",
+            "arn:aws:s3:::notification-bucket/*"
+          ]
+        },
+        {
+          Effect = "Allow"
+          Action = [
+            "logs:CreateLogGroup",
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ]
+          Resource = "*"
+        }
+      ]
+    }
+  )
+}
+
+#attach the policy to the role
+resource "aws_iam_role_policy_attachment" "this" {
+  role = aws_iam_role.this.name
+  policy_arn = aws_iam_policy.this.arn
+}
+
+# create lambda
+resource "aws_lambda_function" "this" {
+  function_name = "notification-lambda"
+  runtime = "python3.12"
+  handler = "lambda_function.lambda_handler"
+  role = aws_iam_role.this.arn
+  memory_size = 512 # min=128mb max=10gb
+  timeout = 900  # min=1 max=900
+  reserved_concurrent_executions = 10
+  layers = [
+    aws_lambda_layer_version.this.arn
+  ] # max 5 layers
+  depends_on = [ 
+    aws_cloudwatch_log_group.this
+   ]
+  s3_bucket = "notification-bucket"
+  s3_key = "notification/v1.zip"
+}
+
+
+
+
+
+
+

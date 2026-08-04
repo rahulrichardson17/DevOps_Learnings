@@ -1473,3 +1473,69 @@ questions:
         AWS
 
         You don't run terraform apply from your laptop anymore.Terraform Enterprise runs it.
+
+    Q14) Can you explain how you designed reusable modules
+
+        In our project, instead of writing the same Terraform code 
+        multiple times, we created reusable modules. A module is nothing but 
+        a collection of Terraform configuration files for a specific resource. 
+    
+        For example, we created separate modules for S3, Lambda, 
+        IAM, VPC, Security Groups, etc. Whenever another team or 
+        environment required the same resource, they simply called 
+        the module and passed different input values instead of rewriting 
+        the resource.
+
+        Typical Project Structure
+
+            terraform/
+            │
+            ├── modules/
+            │      ├── s3/
+            │      │      main.tf
+            │      │      variables.tf
+            │      │      outputs.tf
+            │      │
+            │      └── lambda/
+            │             main.tf
+            │             variables.tf
+            │             outputs.tf
+            │
+            ├── environments/
+            │      ├── dev/
+            │      ├── staging/
+            │      └── prod/
+
+
+        example:
+            s3 module
+
+            resource "aws_s3_bucket" "this" {
+                bucket = var.bucket_name
+                tags = var.tags
+            }
+
+            variable "bucket_name" {
+                type = string
+            }
+
+            variable "tags" {
+                type = map(string)
+            }
+
+            output "bucket_id" {
+                value = aws_s3_bucket.this.id
+            }
+
+            output "bucket_arn" {
+                value = aws_s3_bucket.this.arn
+            }
+
+
+            calling in DEV
+
+            module "log_bucket" {
+                source = "../../modules/s3"
+                bucket_name = var.bucket_name
+                tags = var.tags
+            }

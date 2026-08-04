@@ -263,5 +263,14 @@
     Helm is a package manager and templating tool for Kubernetes that lets you define your application's 
     Kubernetes resources once, customize them using values, install them with a single command, upgrade them easily, and roll back if needed.
     
+2) project setup
+
+    helm create flask-chart
+
+    The above command generates the helm related files in the project structure.
+    Helm does not automatically generate your deployment from your existing YAML files. 
+    You have to convert your existing YAML files into Helm templates.
+
+    
 
     
