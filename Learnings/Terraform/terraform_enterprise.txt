@@ -1,38 +1,150 @@
 1) Terraform Open Source vs Terraform Cloud/Enterprise
 
-    Normally you run:
-        terraform init
-        terraform plan
-        terraform apply
-    from your laptop or Jenkins server.
+                    Terraform
+                        |
+        ----------------------------------
+        |                |              |
+      CLI          HCP Terraform    Terraform Enterprise
+   (Open Source)     (SaaS)         (Self-hosted)
 
-    State is usually stored in S3:
-        backend "s3" {
-            bucket = "terraform-state"
-        }
+   1. Terraform CLI (Open Source)
+        You install Terraform on your laptop
 
-    But in Terraform Cloud (TFC) or Terraform Enterprise (TFE):
+        Normally you run:
+            terraform init
+            terraform plan
+            terraform apply
+        from your laptop or Jenkins server.
 
-        State is stored centrally.
-        Terraform runs happen remotely.
-        Teams collaborate safely.
-        RBAC exists.
-        Policy enforcement exists.
-        Cost estimation exists.
-        VCS integration exists.
-        Audit logs exist.
+        State is usually stored in S3:
+            backend "s3" {
+                bucket = "terraform-state"
+            }
 
-    In simple terms think like
-        | Git                | Terraform         |
-        | ------------------ | ----------------- |
-        | GitHub             | Terraform Cloud   |
-        | Local repository   | Local Terraform   |
-        | Branch protections | Sentinel policies |
-        | Pull requests      | Terraform Runs    |
+    2. HCP Terraform (formerly Terraform Cloud)
 
-    Terraform code is executed on Terraform Cloud workers instead of local machines. 
-    The plan, policy checks, cost estimation, and apply happen remotely while state 
-    is centrally managed.
+        This is the SaaS (Software as a Service) version.
+        HashiCorp hosts everything. You don't install servers.
+
+        Just sign in.
+            Your Browser
+                |
+            HCP Terraform
+                |
+                AWS
+        You push code to GitHub.
+
+        HCP Terraform automatically
+            Plan
+            ↓
+            Approval
+            ↓
+            Apply
+
+        Everything happens remotely.
+
+        It provides
+            ✅ UI
+            ✅ Remote State
+            ✅ Remote Runs
+            ✅ Team Management
+            ✅ Workspaces
+            ✅ Variables
+            ✅ Cost Estimation
+            ✅ Policy as Code
+            ✅ Notifications
+
+        Example:
+            Developer
+            ↓
+            GitHub Push
+            ↓
+            HCP Terraform
+            ↓
+            AWS
+
+        No Terraform installed on your laptop is required for the 
+        execution.
+
+    3. Terraform Enterprise (TFE)
+
+        This is the self-hosted version. Instead of HashiCorp hosting it,
+        your company hosts it.
+
+        Example:
+            Company Datacenter
+
+            Terraform Enterprise Server
+            ↓
+            AWS
+
+        Looks almost identical to HCP Terraform.
+            Same UI.
+            Same Workspaces.
+            Same RBAC.
+            Same Policies.
+            Same Remote Execution.
+        But your company controls the infrastructure and data.
+
+        Why do companies choose Enterprise?
+            Because some organizations cannot store their 
+            infrastructure metadata outside their own environment.
+
+            Examples:
+                Banks
+                Government
+                Defense
+                Healthcare
+
+            Enterprise offers
+                Private installation
+                Air-gapped deployments
+                Internal authentication (LDAP/SAML)
+                Custom networking
+                Full data control
+
+        But in Terraform Cloud (TFC) or Terraform Enterprise (TFE):
+
+            State is stored centrally.
+            Terraform runs happen remotely.
+            Teams collaborate safely.
+            RBAC exists.
+            Policy enforcement exists.
+            Cost estimation exists.
+            VCS integration exists.
+            Audit logs exist.
+
+        In simple terms think like
+            | Git                | Terraform         |
+            | ------------------ | ----------------- |
+            | GitHub             | Terraform Cloud   |
+            | Local repository   | Local Terraform   |
+            | Branch protections | Sentinel policies |
+            | Pull requests      | Terraform Runs    |
+
+        Terraform code is executed on Terraform Cloud workers instead of local machines. 
+        The plan, policy checks, cost estimation, and apply happen remotely while state 
+        is centrally managed.
+
+    4. HCP Terraform Agents (Hybrid)
+
+        This is not a separate Terraform product, but an important 
+        deployment model. Sometimes your infrastructure is private.
+
+        Example:
+            AWS Private VPC
+            Database
+            No Public Access
+
+        HCP Terraform cannot reach it directly. So you install an Agent inside your network.
+            HCP Terraform
+            ↓
+            Terraform Agent
+            ↓
+            Private AWS Resources
+
+        This keeps the control plane in HCP while allowing operations 
+        inside private networks.
 
 
 2) Architecture
