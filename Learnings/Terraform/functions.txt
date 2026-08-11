@@ -1,0 +1,286 @@
+1)String functions
+
+    upper()
+        Converts text to uppercase.
+
+        variable "environment" {
+            default = "dev"
+        }
+
+        output "env" {
+            value = upper(var.environment)
+        }
+
+        Output: DEV
+
+    lower()
+        value = lower("PRODUCTION")
+
+        Output: production
+
+    replace()
+        value = replace("dev-server-01", "dev", "prod")
+
+        Output: prod-server-01
+
+    join()
+        Combines list elements into a string.
+        
+        value = join("-", ["dev", "app", "server"])
+        
+        Output: dev-app-server
+
+    split()
+        Converts a string into a list.
+        
+        value = split(",", "dev,prod,test")
+
+        Output: ["dev", "prod", "test"]
+
+2)Collection functions
+
+    length()
+        Returns the number of elements.
+
+        variable "regions" {
+            default = ["us-east-1", "us-west-2", "ap-south-1"]
+        }
+
+        output "count" {
+            value = length(var.regions)
+        }
+
+        Output: 3
+
+    element()
+        Gets an element from a list.
+
+        value = element(["dev", "test", "prod"], 1)
+
+        Output: test
+
+        Remember: indexes start from 0.
+
+    contains()
+        Checks whether a list contains a value.
+
+        value = contains(["dev", "test", "prod"], "prod")
+
+        Output: true
+
+    concat()
+        Combines lists.
+
+        value = concat(
+            ["subnet-1", "subnet-2"],
+            ["subnet-3", "subnet-4"]
+        )
+
+        Output: ["subnet-1", "subnet-2", "subnet-3", "subnet-4"]
+
+3)Numeric functions
+
+    max()
+        value = max(10, 20, 5)
+        
+        Output: 20
+
+    min()
+        value = min(10, 20, 5)
+        
+        Output: 5
+
+    ceil()
+        Rounds upward.
+        
+        value = ceil(10.2)
+
+        Output: 11
+
+    floor()
+        Rounds downward.
+        
+        value = floor(10.8)
+
+        Output: 10
+
+
+4)Conditional functions
+    
+    coalesce()
+        Returns the first non-null/non-empty value.
+
+        value = coalesce(null, "", "production", "dev")
+
+        Output: production
+        Very useful when you have optional variables.
+
+    For example:
+        variable "environment" {
+            default = null
+        }
+
+        locals {
+            environment = coalesce(var.environment, "dev")
+        }
+
+    If the user doesn't provide environment, Terraform uses: dev
+
+5)Map functions
+
+    lookup()
+        Gets a value from a map.
+
+        variable "instance_types" {
+            default = {
+                dev  = "t3.micro"
+                test = "t3.small"
+                prod = "t3.large"
+            }
+        }
+
+        output "instance_type" {
+            value = lookup(var.instance_types, "prod", "t3.micro")
+        }
+
+        Output: t3.large
+
+        Syntax: lookup(map, key, default)
+        The third argument is used if the key doesn't exist.
+
+6) Type conversion functions
+    
+    toset()
+        Converts a list into a set.
+        
+        value = toset(["dev", "test", "prod", "dev"])
+
+        Result: ["dev", "prod", "test"]
+        Duplicates are removed.
+
+        This is very commonly used with for_each.
+
+        variable "users" {
+            default = ["rahul", "john", "rahul"]
+        }
+
+        resource "aws_iam_user" "users" {
+            for_each = toset(var.users)
+            name = each.value
+        }
+
+        Terraform creates users only once for duplicate values.
+
+    tolist()
+        Converts a set to a list.
+        
+        value = tolist(var.my_set)
+
+    tomap()
+        Converts a value to a map.
+
+        value = tomap({
+            environment = "dev"
+            team        = "platform"
+        })
+
+7)File functions
+
+    file()
+        Reads the contents of a file.
+        
+        Suppose: userdata.sh
+        contains:
+
+            #!/bin/bash
+            echo "Hello"
+
+        Terraform:
+            resource "aws_instance" "example" {
+                ami           = "ami-123456"
+                instance_type = "t3.micro"
+
+                user_data = file("${path.module}/userdata.sh")
+            }
+
+            This is very common in AWS Terraform.
+
+
+8)Encoding functions
+
+    base64encode()
+        value = base64encode("hello")
+        
+        Returns the Base64 representation.
+
+    base64decode()
+        Does the reverse:
+        value = base64decode("aGVsbG8=")
+
+        Output: hello
+
+
+9)Date/time functions
+
+    timestamp()
+        Returns the current timestamp.
+
+        output "current_time" {
+            value = timestamp()
+        }
+        
+        Example: 2026-08-10T09:20:30Z
+        Useful for tagging, although be careful: values depending on timestamp() can cause changes during planning/applying.
+
+10)Hash functions
+
+    md5()
+        value = md5("hello")
+
+    sha256()
+        value = sha256("hello")
+        
+    These are useful when you need a deterministic hash.
+
+
+11)Very important: 
+
+    try()
+        try() is extremely useful in real Terraform code.
+        It allows Terraform to try expressions and use a fallback if the expression produces an error.
+
+        locals {
+            environment = try(var.config.environment, "dev")
+        }
+
+    If: var.config.environment doesn't exist, Terraform uses: dev
+
+    can()
+        Checks whether an expression can be evaluated successfully.
+        
+        can(var.config.environment)
+        
+        Returns: true
+        
+        or: false
+
+        Commonly used in variable validation.
+
+    format()
+        Creates formatted strings.
+        
+        value = format("%s-%s-%s", "dev", "app", "01")
+        
+        Output: dev-app-01
+
+    formatlist()
+        Formats every item in a list.
+        
+        value = formatlist("server-%s", ["01", "02", "03"])
+
+        Output:
+            [
+                "server-01",
+                "server-02",
+                "server-03"
+            ]

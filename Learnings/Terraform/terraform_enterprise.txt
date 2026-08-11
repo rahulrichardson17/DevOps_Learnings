@@ -146,7 +146,6 @@
         This keeps the control plane in HCP while allowing operations 
         inside private networks.
 
-
 2) Architecture
 
     Developer:
@@ -169,6 +168,12 @@
         ↓
         Apply
 
+    
+    Hireracy:
+
+        Organization
+            Project
+                Workspaces
 
     1. Remote Execution
 
@@ -246,6 +251,164 @@
             runs
             policies
 
+    2) Creation of Workspace in enterprise:
+        Create a new workspace
+            choose workflow type
+                Version control Flow
+                CLI-Driven Flow
+                API-Driven Workflow
+
+            Prefered: Version control flow
+                then choose Github
+                and connect to it and choose the repo and then create a workspace.
+
+        Once repo is created, then we will be seeing these
+            Overview
+            Runs
+            States
+            Variables
+            Settings
+
+        Variables:
+            we can create the variables in this 
+            and add the value there, If the value is sensitive
+            then we can click the sensitive checkbox. So that it will be 
+            not visible
+
+            Same way we can apply the environment variables also
+            and they will be automatically kept sensitive, for security purpose.
+            we can edit and delete but we cant view it.
+
+        Queue Manually:
+            Normally, a Terraform run is triggered automatically when 
+            code changes are pushed to GitHub. But you can also 
+            queue a run manually.
+
+            It means you manually tell HCP Terraform or Terraform 
+            Enterprise to start a Terraform run, even if no Git commit 
+            or pull request has occurred.
+
+            Workspace
+                ↓
+            Queue manually
+                ↓
+            Terraform Plan
+                ↓
+            Approval (if required)
+                ↓
+            Terraform Apply
+
+
+            When is it used?
+                1. Variable changed
+                    Suppose you changed a workspace variable:
+                        Instance Type
+                        t2.micro
+                            ↓
+                        t3.medium
+
+                    You didn't change any Terraform code.
+                    Since there is no Git commit, Terraform won't automatically run.
+                    You click Queue Run (or Queue Manually), and Terraform plans and applies the change.
+
+                2. Instead of making a fake code change just to trigger a run, you simply:
+                   Queue Run
+
+                3. Drift Detection
+                    Someone manually changes an AWS resource.
+
+                    Example:
+                        Terraform created
+                            EC2
+                            |
+                            t3.medium
+
+                            ↓
+                            Someone changes it in AWS Console
+                            ↓
+                            t3.large
+                        You queue a new plan.
+
+                        Terraform compares:
+                            Desired State
+                            vs
+                            Actual State
+                        and shows the drift.
+
+                4. After fixing permissions
+                    Suppose yesterday your run failed with: AccessDenied
+
+                    Today your AWS IAM permissions have been fixed.
+                    Instead of changing the code, you click Queue Run to retry.
+
+                Automatic Run vs Manual Queue
+                    | Automatic Run               | Manual Queue                                                 |
+                    | --------------------------- | ------------------------------------------------------------ |
+                    | Triggered by Git commit     | Triggered by a user                                          |
+                    | Happens automatically       | You click "Queue Run"                                        |
+                    | Used for normal deployments | Used for retries, variable changes, testing, or drift checks |
+
+    3) Workspaces features
+        We can select the repo and create the workspaces
+        If the repo is having multiple folders then we have an option
+        to choose the path of the specific directory.
+
+        Auto-Apply?
+
+            Auto-Apply is a workspace setting that automatically executes
+            terraform apply after a successful terraform plan. When disabled, 
+            Terraform generates the plan and waits for manual approval before 
+            applying the changes. In most organizations, Auto-Apply is enabled 
+            for development environments to speed up deployments, while 
+            production environments keep it disabled to enforce change 
+            review and approval.
+
+            Normally, a Terraform run has two phases:
+                terraform plan
+                        ↓
+                (terraform waits)
+                        ↓
+                terraform apply
+
+            By default, after generating the plan, Terraform waits for someone to approve it.
+            
+            Auto-Apply = OFF (Default)
+                Then it waits. Someone reviews the changes and clicks Apply.
+                This is the safest approach.
+
+            Auto-Apply = ON
+                Now suppose Auto-Apply is enabled. Nobody needs to click Apply.
+
+            It is useful in environments where changes are low risk.
+
+        VCS Triggers
+            Choose when runs should be triggered by VCS changes.
+            Branch based or tags based, In generally branch based 
+            
+            Automatic run triggering,
+                Always trigger runs
+                only trigger runs when files in specific path changes.(and mention the regex path below)
+
+        Pull requests:
+            Automatic speculative plans(Trigger speculative plan for pull requests to this repository)
+
+        Other settings: include submodules on clone
+
+        Start a New Run:
+            We do this run manually, we will provide the Run name
+            and run type (Plan & apply (standard), Refresh state , Plan only, Allow empty apply)
+
+        Variables:
+            Sensitive variables
+            workspace variables
+            variable sets
+            environment variables
+
+
+            Terraform variable: This should match the
+                declaration in your configuration.
+
+            Environment variable: These were available at the run time environment    
 
 4) Terraform CLI Workspaces and Terraform Cloud Workspaces
 
@@ -377,7 +540,6 @@
     How is state managed in Terraform Cloud?
         Terraform Cloud stores state remotely with versioning, 
         encryption, locking, and automatic backups.
-
 
 8) Sentinel
 
@@ -1122,8 +1284,115 @@
 
     Ex:
 
+31) CLI driven to connect local branch to workspace
+    Select workspace with cli driven 
+
+    In local we need to select the fodler where we want to connect 
+    and then do terraform login
+    it asks do you want to proceed and click yes then it will prompt
+    to a screen to create the User token, and set the expirary.
+    and paste the copied token value in the terminal
+
+    Can we convert a VCS-driven workspace to a CLI-driven workspace?
+        Yes. In HCP Terraform, you can disconnect the workspace from 
+        its version control integration in the workspace settings, 
+        after which it can be used as a CLI-driven workspace. 
+        The workspace, remote state, variables, and history remain 
+        intact; only the method of triggering Terraform runs changes. 
+        You can also reconnect a VCS later if needed.
+
+    whatever commands we apply in the local changes will happen in the remote
+    That's correct for a CLI-driven workspace configured with the cloud block.
+
+    terraform {
+        cloud {
+            organization = "my-org"
+
+            workspaces {
+                name = "dev-infra"
+            }
+        }
+    }      
+
+32) API-driven?
+    Instead of terraform apply or git push, you send an 
+    HTTP API request to HCP Terraform.
+    No one opens VS Code. No one types terraform apply.
+    Everything is controlled by an application.
+
+    Real Enterprise Example:
+        Imagine your company has an Internal Cloud Portal.
+        
+        A developer fills a form:
+            Create EC2
+
+            Name : web-server
+            Size : t3.medium
+            Environment : Dev
+
+        Clicks
+            Create
+            The portal sends an API request to HCP Terraform.
+            HCP Terraform runs Terraform.
+            AWS creates the EC2.
+            The developer never sees Terraform.
 
 
+    Another Example:
+        Suppose your company uses ServiceNow.
+
+        Employee submits:
+            Need an RDS Database
+            ↓
+            Manager approves
+            ↓
+            ServiceNow calls the Terraform API
+            ↓
+            Terraform creates the RDS
+            ↓
+            Employee receives the endpoint
+
+    API-driven flow:
+        Local Terraform Code
+        ↓
+        Zip Configuration
+        ↓
+        Upload Configuration Version
+        ↓
+        Create Run
+        ↓
+        Plan
+        ↓
+        Apply
+    
+    So there are usually two API calls:
+        Upload the Terraform configuration.
+        Start a run using that uploaded configuration.
+
+    API-driven Flow:
+        Python Script
+            │
+            ▼
+        Terraform API
+            │
+        Upload Code
+            │
+        Create Run
+            │
+        Plan
+            │
+        Apply
+            ▼
+        AWS
+
+    | Mode       | Usage                 |
+    | ---------- | --------------------- |
+    | CLI-driven | Developers            |
+    | VCS-driven | Most organizations    |
+    | API-driven | Enterprise automation |
+
+    About 90% of teams use VCS-driven for day-to-day infrastructure deployments.
+    API-driven is mainly for companies that have built custom platforms on top of Terraform rather than having engineers interact with Terraform directly.
 
 
 
