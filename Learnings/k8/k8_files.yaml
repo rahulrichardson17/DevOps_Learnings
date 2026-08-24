@@ -1,0 +1,237 @@
+## Namespace
+
+apiVersion: v1
+kind: Namespace
+
+metadata:
+  name: my-namespace
+
+
+## Deployement
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: nginx-deployment
+  name-space: my-namespace
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      labels:
+        app: nginx
+
+    spec:
+      containers:
+        - name: nginx-cont
+          image: nginx.1.25
+          ports:
+            - containerPort: 80
+          
+          resources:
+            requests: # minimum resources the container needs
+              cpu: "100m"
+              memory: "128Mi"
+            limits: # maximum resources the container is allowed to use
+              cpu: "500m"
+              memory: "512Mi"
+            
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            PeriodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            PeriodSeconds: 20
+
+          envFrom:
+            - configMapRef:
+                name: app-config
+
+            - secretRef:
+                name: app-secret   
+
+          volumeMounts:
+            - name: app-storage
+              mountPath: /data
+
+          volumes:
+            - name: app-storage
+              persistentVolumeClaim:
+                claimName: app-pvc 
+          
+# Service
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: nginx-service
+  namespace: my-namespace
+
+spec:
+  selector:
+    app: nginx
+
+  ports:
+    - port: 80
+      targetPort: 80
+
+  type: ClusterIP
+
+
+# Node service port
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: node-service
+
+spec:
+
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 300080
+  type: NodePort
+
+
+# ConfigMap
+#Used for non-sensitive configuration.
+# And we inject this to the deployment, so that app can use this
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: app-config
+  namespace: my-namespace
+
+data:
+  APP_ENV: "production"
+  HOST_NAME: "mongodb-service"
+  DB_PORT: 27017
+
+
+#Secrets
+apiVersion: v1
+kind: Secret
+
+metadata:
+  name: app-secret
+  namespace: my-namespace
+
+type: Opaque
+
+stringData:
+  DB_USERNAME: dsnksdn
+  DB_PASSWORD: sndfdf
+
+# PVC
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: app-pvc
+
+spec:
+  accessMode:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 5Gi
+  
+
+#Statefulset
+#Deployment → for stateless applications
+#StatefulSet → for stateful applications, You don't want that data to disappear just because the Pod is recreated.
+
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: mongo
+
+spec:
+  serviceName: mongo-service
+
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: mongo
+
+  template:
+    metadata:
+      labels:
+        app: mongo
+
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+
+          ports:
+            - containerPort: 27017
+
+          volumeMounts:
+            - name: mongo-storage
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: mongo-storage
+
+      spec:
+        accessModes:
+          - ReadWriteOnce
+
+        resources:
+          requests:
+            storage: 10Gi
+
+#ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: app-ingress
+
+spec:
+  ingressClassName: nginx
+
+  rules:
+    - host: app.example.com
+
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+
+            backend:
+              service:
+                name: nginx-service
+                port:
+                  number: 80
+  
+
+
+
+
+         
+          

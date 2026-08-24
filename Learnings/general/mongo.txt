@@ -1,0 +1,328 @@
+1)What is MongoDB?
+    MongoDB is a NoSQL document database that stores data in 
+    JSON-like documents called BSON.
+
+    {
+        "_id": 1,
+        "name": "Rahul",
+        "email": "rahul@gmail.com"
+    }
+
+    Unlike SQL databases, it does not store data in rows and tables.
+
+    What is NoSQL?
+        NoSQL means "Not Only SQL".
+        
+        Types:
+            Document (MongoDB)
+            Key-Value (Redis)
+            Columnar (Cassandra)
+            Graph (Neo4j)
+
+
+    What is BSON?
+        MongoDB stores data internally as: BSON = Binary JSON
+        Benefits:
+            Faster processing
+            Supports additional data types
+            Efficient storage
+
+2)Collections & Documents
+
+    A database is a container that holds collections.
+    A collection is similar to a table in a relational database.
+    A document is similar to a row/record in a SQL table.
+
+    MongoDB stores data in databases, collections, and documents. 
+    A collection is similar to a table in SQL and contains multiple 
+    documents. A document is a JSON-like record containing key-value 
+    pairs. Unlike SQL tables, collections in MongoDB are schema-flexible, 
+    meaning documents in the same collection can have different fields.
+
+
+    What is _id?
+        Every document contains:
+            {
+                "_id":"507f1f77bcf86cd799439011"
+            }
+        Unique identifier. Like a primary key.
+
+        It is the unique identifier for a document within a collection.
+        "_id": ObjectId("689f6c3c4f1b8d1234567890"),
+
+        Prevents duplicate IDs
+        Used for fast lookups
+        Acts like a Primary Key in SQL
+
+        By default MongoDB generates an ObjectId.
+        It is a 12-byte value that contains information such as:
+
+3)CRUD Operations
+
+    MongoDB
+    └── Database
+        └── Collection
+            └── Document
+                    └── Fields
+
+    To use a company database we need to use the keyword use
+    use company
+
+    To see all the databases, we use show dbs
+
+    To create a collection explicity we use
+    db.createCollection("employees")
+
+    To see the collections, we use
+    show collections
+
+    Mongo creates collection automatically,if it doesnt exists.
+    db.employees.insertOne({
+        name: "Rahul",
+        age: 28
+    })
+
+    insertOne()
+        insert one document,mongodb automatically generates the _id, which is the 
+        unique id.
+
+        db.employees.insertOne({
+            name: "Rahul",
+            age: 28,
+            city: "Hyderabad"
+        })
+
+    insertMany()
+        insert many documents, at once to the mongo collection
+
+        db.employees.insertMany([
+            {
+                name: "Rahul",
+                age: 28,
+                city: "Hyderabad"
+            },
+            {
+                name: "Payal",
+                age: 28,
+                city: "Gurugram"
+            }
+        ])
+
+    We can also specifiy our own _id, but we need to make sure that it was unique.
+    within that collection
+
+    Read/Find documents
+        Find all
+            db.employees.find()
+            this returns all the documents
+
+        Find one
+            db.employees.findOne()
+            this returns the one matching document.
+
+        Find based on the condition 
+        db.employees.find({
+            city: "Hyderabad"
+        })
+
+    updateOne()
+        db.employees.updateOne(
+            { name: "Rahul"},
+            { $set: { age: 28 }}
+        )
+
+        $set changes the specified field without replacing the entire document.
+
+    updateMany()
+        db.employees.updateMany(
+            { city: "Hyderabad" },
+            { $set: { department: "Engineering" } }
+        )
+
+    deleteOne()
+        delete only one record
+        db.employees.deleteOne(
+            {
+                name: "Rahul"
+            }
+        )
+
+    deleteMany()
+        delete all records which matches
+        db.employees.deleteMany({
+            city: "Pune"
+        })
+
+        db.employees.deleteMany({})
+        this deletes all the documents in the collection
+        the collection itself remains
+
+    drop a collection
+        db.employees.drop()
+    drop a database
+        db.dropDatabase()
+        deletes the current database
+    
+    Projection:
+        in a document if we need only few elements, for that we use the Projection
+        1 means include, 0 means exclude
+
+    Sort:
+        1 for Ascending
+        -1 for Descending
+
+        db.employees.find().sort({
+            age: 1
+        })
+
+    to remove any field we use $unset
+    to rename any field name we use $rename
+    to add any item to an array we use, $push
+    to remove an item from any array we use $pull
+
+
+4)Operators
+
+    Comparison Operators
+        $eq, $ne, $gt, $lt, $gte, $lte, $in, $nin
+
+        db.employees.find({
+            age: { $gt: 25 }
+        })
+
+        db.employees.find({
+            age: { $gte: 25 }
+        })
+
+        db.employees.find({
+            city: { $ne : "Hyderabad" }
+        })
+
+        db.employees.find({
+            city: { $in : ["Hyderabad", "Gurugram"] }
+        })
+
+    Logical Operators
+        $and, $or, $not, $nor
+
+        db.employees.find({
+            $and: [{
+                city: "Hyderabad",
+                age: { $gt : 25 }
+            }]
+        })
+
+        db.employees.find({
+            $or : [{
+                age: { $lt : 30 },
+                city: { $nin : ["Delhi", "Pune"]}
+            }]
+        })
+
+    $exists
+        find documents, where all email exists and not exists
+        db.employees.find({
+            email: { $exists: true }
+        })
+
+        db.employees.find({
+            email: { $exists: false }
+        })
+
+    $regex
+        search name starts with Rah
+        db.employees.find({
+            name: { 
+                $regex: "^Rah",
+                $options: "i"
+            }
+        }) 
+
+5)Nested Documents
+
+    mongo db can contain the nested documents
+    {
+        name: "Rahul",
+        age: 28,
+        address: {
+            city: "Hyderabad",
+            pincode: 1323333
+        }
+    }
+
+    Now to find all the Hyderabad employees
+    db.employees.find({
+        "address.city": "Hyderabad"
+    })
+
+    This is called the dot notation
+
+6) Indexing
+
+    An index helps MongoDB find documents faster without scanning the 
+    entire collection.
+
+    If there are 10 million users, MongoDB without an index may need 
+    to check many documents.
+
+    db.users.createIndex({ email: 1 })
+
+    db.users.getIndexes()
+
+    db.users.dropIndex("email_1")
+
+    Indexing improves query performance by allowing MongoDB to locate documents efficiently instead of scanning the entire collection.
+
+7) Aggregation
+
+    Aggregation is used to process and analyze documents and produce calculated results.
+    Think of it like SQL GROUP BY, COUNT, SUM, AVG, etc.
+
+    db.employees.aggregate([{
+        $group : {
+            _id: "$department",
+            avgSalary: { $avg: "$salary" }
+        }
+    }])
+
+8) Relationships
+    MongoDB is a NoSQL document database, but documents can still have relationships.
+    
+    There are two major ways to represent this relationship:
+        Embedding
+        Referencing
+
+        Embedding
+            Put related data inside the same document.
+
+        Instead of putting the complete data inside the document, store the ID of another document.
+
+    Embedding → Keep related data together.
+    Referencing → Keep data separately and connect using IDs.
+
+9) Sharding
+    
+    Sharding means distributing MongoDB data across multiple servers.
+            MongoDB Cluster
+                  |
+       -----------------------
+       |          |          |
+    Shard 1    Shard 2    Shard 3
+    300M       350M       350M
+
+    Sharding is MongoDB's horizontal scaling mechanism where dat
+    a is distributed across multiple servers using a shard key.
+
+    JSON is a human-readable text format used to represent data, whereas BSON is MongoDB's binary-encoded document format. BSON extends JSON by supporting additional data types such as ObjectId, Date, Binary, and Decimal128."
+
+
+10) Dump
+
+    mongodump --db mydb --out /backup
+
+    mongodump --out /backup
+
+    dump specific collection
+    mongodump --db mydb --collection coll --out /backup
+
+    

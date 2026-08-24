@@ -1,0 +1,196 @@
+Metadata Management
+Data Classification
+Data Governance
+
+1)What is Metadata?
+
+    Metadata = Data about Data.
+    Metadata = Information that describes data.
+    
+    Metadata is data about data. It provides information such as source, 
+    schema, owner, creation date, sensitivity level, and lineage of a dataset.
+
+    Types of Metadata
+        Business Metadata (It holds business related information)
+        Technical Metadata (It holds datatype, database, table schema etc)
+        Operational Metadata (load time, timestamps, source, targets etc.)
+
+    
+2)What is Metadata Management?
+
+    Metadata management is the process of collecting, organizing, maintaining, and governing 
+    metadata to improve data discovery, understanding, compliance, and governance.
+
+
+3)Data Classification
+
+    Data classification is the process of categorizing data based on sensitivity, 
+    risk, and business value to apply appropriate security and compliance controls.
+
+
+4)Structured vs Unstructured Data
+
+    Stored in rows and columns is called Structured data.
+    No predefined schema for the Unstructured data.
+
+    Structured data follows a predefined schema and is stored in relational databases, 
+    while unstructured data lacks a fixed format and includes documents, emails, images, 
+    videos, and logs.
+
+
+5)What is Data Classification Scan?
+
+    A Data Classification Scan is the process of automatically scanning data sources to discover, 
+    identify, categorize, and label sensitive information stored 
+    across an organization's systems.
+
+    Think of it as a security and governance inspection
+        
+        What data do we have?
+        Where is it stored?
+        Is it sensitive?
+        Who has access to it?
+        Does it contain PII, financial, healthcare, or confidential information?
+
+    Why Organizations Perform Classification Scans
+        Find sensitive data that needs protection.
+
+    Compliance
+        Meet regulations such as:
+            GDPR
+            HIPAA
+            PCI-DSS
+            CCPA
+
+    Common Classification Labels
+        | Label        | Meaning                             |
+        | ------------ | ----------------------------------- |
+        | Public       | Anyone can access                   |
+        | Internal     | Company use only                    |
+        | Confidential | Sensitive business data             |
+        | Restricted   | Highly sensitive                    |
+        | PII          | Personally Identifiable Information |
+        | PHI          | Protected Health Information        |
+        | Financial    | Banking/Credit Card Data            |
+
+    
+    A Data Classification Scan is the process of automatically scanning structured and unstructured 
+    data sources to discover, identify, and classify sensitive information such as PII, 
+    financial, or healthcare data. It helps organizations improve security, compliance, 
+    data governance, and access control by understanding what data exists and 
+    where it is stored.
+
+    PII identifies an individual, while PHI includes healthcare-related information 
+    associated with an individual and is protected under healthcare regulations 
+    such as HIPAA.
+
+    Popular Tools
+        Cloud
+            AWS Macie
+            Azure Purview (Microsoft Purview)
+            Google Cloud DLP
+
+        Enterprise
+            Informatica Data Governance
+            Collibra
+            BigID
+            OneTrust
+            Varonis
+
+6)compliance regulations/standards
+
+    These are compliance regulations/standards that 
+    organizations follow to protect certain types of data.
+
+    GDPR — General Data Protection Regulation
+        Mainly about: Personal data of individuals in the European Union (EU)
+
+        Examples of personal data:
+            Name
+            Email
+            Phone number
+            Address
+            IP address
+            Identification numbers
+            Location data
+
+        A company has:
+            Customer Name: Rahul
+            Email: rahul@example.com
+            Phone: 9876543210
+
+        This is personal data, so GDPR requirements may apply if the organization 
+        processes EU individuals' data.
+
+
+    HIPAA — Health Insurance Portability and Accountability Act
+        Mainly about: Healthcare information in the United States.
+
+        It protects PHI (Protected Health Information).
+
+        Examples:
+            Patient Name
+            Patient ID
+            Diagnosis
+            Medical History
+            Prescription
+            Lab Results
+            Insurance Information
+
+        This is healthcare-related sensitive information and may be 
+        considered PHI under HIPAA when associated with an individual.
+
+    
+        HIPAA focuses on things like:
+            Confidentiality
+            Integrity
+            Availability
+            Access controls
+            Audit logging
+            Encryption
+            Protecting patient information
+
+        HITRUST - Health Information Trust Alliance
+            HITRUST provides a detailed framework of security controls to help organizations comply with HIPAA and other regulations.
+
+        HIPAA
+            Says: "You must lock the door."
+            
+        HITRUST
+            Says: "Use a strong lock, maintain access logs, restrict keys, 
+            review access regularly, and monitor for unauthorized entry."
+
+    PCI-DSS — Payment Card Industry Data Security Standard
+        Mainly about: Payment card information.
+        Organizations handling card payments need to follow PCI-DSS security requirements.
+
+    Discover → Classify → Protect → Monitor → Audit
+
+
+7)Data Governance
+    Data governance is a framework of policies, processes, and controls 
+    that ensure data quality, security, availability, compliance, 
+    and accountability across an organization.
+
+        Who owns data?
+        Who can access it?
+        Is it classified?
+        Is it compliant?
+        Is it encrypted?
+
+8)Data Lineage
+    Data lineage provides end-to-end visibility into the lifecycle 
+    of data, including its source, transformations, movement, and 
+    destination.
+
+
+
+    
+
+    
+
+
+
+
+
+
