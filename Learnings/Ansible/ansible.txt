@@ -1,0 +1,445 @@
+1) what is ansible
+    Ansible is an automation tool used to configure, manage, and deploy systems.
+
+    For example, suppose you have 100 Linux servers.
+    
+    Manually, you might have to:
+        SSH into server 1
+        Install Nginx
+        Create a configuration file
+        Start Nginx
+        Enable it at boot
+        Repeat for server 2...
+        Repeat 100 times 😓
+    
+    With Ansible, you describe the desired steps once,
+    Then Ansible can execute that against all 100 servers.
+
+
+    Why was Ansible created?
+        Managing many machines manually is slow, repetitive, and error-prone.
+        Ansible provides automation and consistency.
+
+    
+    Imagine your company has:
+        10 servers
+        100 servers
+        1,000 servers
+        10,000 servers
+
+    You want all of them to have:
+        Java 17
+        Docker
+        Nginx
+        Specific users
+        Specific permissions
+        Specific configuration
+        Security settings
+        Monitoring agent
+    Instead of manually configuring every machine, Ansible can do it automatically.
+
+2)What is Ansible commonly used for?
+
+    1. Server configuration
+        For example:
+            Install packages
+            Install dependencies
+            Create users
+            Create directories
+            Set permissions
+            Modify configuration files
+            Start/stop services
+
+    2. Infrastructure automation
+        Ansible can interact with infrastructure such as:
+            AWS
+            Azure
+            VMware
+            Network devices
+            Kubernetes
+            Databases
+
+    3. Security / patching
+        For example:
+            Patch Linux servers
+            Update packages
+            Disable unnecessary services
+            Configure security settings
+
+3) Ansible Working
+
+    Ansible is generally agentless. That means you normally don't need to 
+    install an Ansible agent on every Linux server.
+
+    The Ansible controller connects to the target machine, 
+    commonly using:SSH, The controller sends instructions to the machines.
+
+                        YOU
+                          |
+                          | Automation request
+                          ↓
+              ┌───────────────────────┐
+              │   Ansible Controller  │
+              │                       │
+              │  Playbooks            │
+              │  Inventory            │
+              │  Variables            │
+              │  Modules              │
+              │  Credentials          │
+              └───────────┬───────────┘
+                          |
+              ┌───────────┼───────────┐
+              |           |           |
+             SSH         SSH         SSH
+              ↓           ↓           ↓
+        ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │ Server 1 │ │ Server 2 │ │ Server 3 │
+        │          │ │          │ │          │
+        │ Linux    │ │ Linux    │ │ Linux    │
+        └──────────┘ └──────────┘ └──────────┘
+
+    The Controller is where Ansible automation is initiated, 
+    and the target machines are where the work happens.
+
+    1. Controller:
+
+        The Ansible Controller is the machine/environment from 
+        which Ansible runs.
+
+        For example: ansible-playbook deploy.yml
+
+        The machine where you execute that command is 
+        effectively your Ansible control node.
+
+    2. Managed Nodes:
+
+        These are the machines Ansible manages. They are often called
+        Managed nodes. For Linux environments, Ansible commonly connects using SSH.
+
+        Unlike some older configuration-management systems, you 
+        generally don't need to install an Ansible agent on every
+        Linux managed node. That's what agentless means in this context.
+
+    3. Inventory:
+
+        Now the Controller needs to know, Which machines should I manage?
+        That's the job of Inventory.
+
+        example:
+            [webservers]
+            web01
+            web02
+            web03
+
+            [databases]
+            db01
+            db02
+
+        hosts: webservers
+
+    4. Playbook:
+
+        we need to tell Ansible what to do. That's the Playbook.
+
+    5. Modules:
+
+        Module = the tool that performs a particular task.
+
+    6. Facts:
+
+        Ansible can also gather information about the target machine.
+        
+        For example:
+            OS = Red Hat Enterprise Linux
+            IP = 10.10.10.20
+            CPU = 4
+            Memory = 16 GB
+            Hostname = web01
+        These are called facts.
+
+4) What is a Playbook?
+
+    A Playbook is basically an Ansible instruction file written in YAML.
+    You can read it almost like English
+
+    Ansible Core picture:
+                    Ansible
+                       |
+          ---------------------------
+          |            |            |
+      Inventory     Playbook      Modules
+          |            |            |
+      "WHERE?"       "WHAT?"     "HOW?"
+          |            |            |
+          └────────────┼────────────┘
+                       ↓
+                  Target Servers
+
+    Inventory: Where should Ansible work?
+        webserver1
+        webserver2
+        dbserver1
+
+    Playbook: What should Ansible do?
+        Install nginx
+        Create user
+        Copy config
+        Restart service
+
+    Module: How does Ansible perform a particular operation?
+        package
+        service
+        copy
+        file
+        user
+        command
+        shell
+        template
+
+5) AAP
+    Ansible
+    ↓
+    Automation engine / automation technology
+
+    Red Hat Ansible Automation Platform
+    ↓
+    Enterprise platform built around Ansible
+
+    AAP gives organizations additional capabilities for centrally 
+    managing and running automation, such as:
+        Automation Controller
+        Automation Hub
+        Execution Environments
+        Credentials
+        RBAC
+        Job Templates
+        Workflows
+        Schedules
+        Audit / activity
+
+    So if your company says:
+
+    We use Red Hat Ansible Automation Platform don't think only:
+    We write YAML playbooks. You'll eventually need to 
+    understand how those playbooks are managed, executed, 
+    secured, and integrated through AAP.
+
+6) Playbook Syntax
+
+    --- This indicates the begning of the YAML document.
+
+    - name: Install Nginx
+        name is simply a human redable format, It makes your playbook easier to understand.
+
+    hosts: webservers
+        It tells Ansible, Which machines should this play run against?
+        Suppose your inventory contains:
+            [webservers]
+            web01
+            web02
+            web03
+
+            [databases]
+            db01
+            db02
+
+        Then hosts: webservers
+
+    tasks
+        Tasks are the actual things you want Ansible to perform.
+
+        A task is basically one unit of work.
+        tasks:
+
+            - name: Install nginx
+              ansible.builtin.package:
+                name: nginx
+                state: present
+
+        Play
+        |
+        └── tasks
+            |
+            ├── Task 1
+            ├── Task 2
+            └── Task 3
+
+        A play can contain multiple tasks.
+
+        tasks:
+            - name: Create application directory
+                ansible.builtin.file:
+                    path: /opt/myapp
+                    state: directory
+
+            - name: Install nginx
+                ansible.builtin.package:
+                    name: nginx
+                    state: present
+
+    Module:
+        ansible.builtin.package: this is called as a Module, the 
+        module performs the actual action.
+
+        package  → install/remove packages
+        service  → manage services
+        file     → manage files/directories
+        copy     → copy files
+        user     → manage users
+        template → create files from templates
+
+        Module Parameters:
+            every module has its own Parameters.
+
+            For package the parameters or options for module were name, state.
+            For file module the parameters were path, state.
+
+
+    Ex: On all web servers, create /opt/myapp.
+
+        ---
+        - name: Creating /opt/myapp on all the webservers
+
+          hosts: webservers
+          tasks:
+
+            - name: Creating directory
+              ansible.builtin.file:
+                path: /opt/myapp
+                state: directory
+
+    become:
+        become: true
+            means execute taks with elevated privillages.
+            it's like using sudo
+
+            For example, installing packages usually requires root privileges.
+
+            ---
+            - name: Configure web servers
+              hosts: webservers
+              become: true
+
+              tasks:
+                - name: Install nginx
+                  ansible.builtin.package:
+                    name: nginx
+                    state: present
+
+            Conceptually:
+                Ansible
+                ↓
+                SSH
+                ↓
+                Server
+                ↓
+                sudo / privilege escalation
+                ↓
+                Install nginx
+
+    vars:
+        you can define Variables, instead of name: nginx
+        we can use the concept of Variables.
+
+        Instead of: 
+            name: nginx
+
+        using vars:
+            vars:
+                package_name: nginx
+
+        Use it like:
+            ---
+            - name: Install webservers
+              hosts: webservers
+              become: true
+
+              vars:
+                package_name: nginx
+
+              tasks:
+                - name: Configure servers
+                  ansible.builtin.package:
+                    name: "{{ package_name }}"
+                    state: present
+
+        {{ }} means evaluate/use an ansible variable or expression here.
+
+    register:
+
+        It stores the result of a task.
+
+        Example:
+            - name: Check nginx version
+              ansible.builtin.command: nginx -v
+              register: nginx_result
+
+            Ansible stores the result in the register and it can be used later.
+
+
+    when:
+        This allows the conditional Execution
+
+        Example:
+            - name: Install nginx
+              ansible.builtin.package:
+                name: nginx
+                state: present
+              when: ansible_os_family == "RedHat"
+
+        Install nginx only if the OS family is Red Hat.
+        You'll use when heavily in real-world playbooks.
+
+    loop:
+        Instead of repeating tasks
+        we can use the loops and make it easy.
+
+        - name: Create users
+          ansible.builtin.user:
+            name: "{{ item }}"
+            state: present
+
+          loop:
+            - Rahul
+            - Venkata
+            - Krishna
+        
+        Ansible executes the task for each item.
+
+    ---
+    - name: Configure web servers       # PLAY
+        hosts: webservers                 # WHERE
+        become: true                      # PRIVILEGE
+
+        tasks:                            # TASK LIST
+            - name: Install nginx           # TASK
+                ansible.builtin.package:      # MODULE
+                    name: nginx                 # PARAMETER
+                    state: present              # PARAMETER
+
+
+            
+    ansible.builtin.package:
+
+        ansible.builtin.package
+        │       │       │
+        │       │       └── Module name
+        │       │
+        │       └── Collection
+        │
+        └── Namespace
+
+    Some common builtin Modules
+
+    ansible.builtin.package
+    ansible.builtin.service
+    ansible.builtin.file
+    ansible.builtin.copy
+    ansible.builtin.template
+    ansible.builtin.user
+    ansible.builtin.command
+    ansible.builtin.shell
+    ansible.builtin.debug
+    ansible.builtin.uri
+
+    
